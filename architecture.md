@@ -22,10 +22,10 @@ These components handle _view_ concerns.
 ```tsx
 // GOOD
 <Sidebar
-  width={appState.sidebarWidth}
-  onResize={(newWidth) =>
-    dispatch({ type: "set_sidebar_width", width: newWidth })
-  }
+	width={appState.sidebarWidth}
+	onResize={(newWidth) =>
+		dispatch({ type: "set_sidebar_width", width: newWidth })
+	}
 />
 
 // BAD
@@ -66,25 +66,25 @@ import { ... } from 'hooks/...';
 import { ... } from 'types/...';
 
 function App() {
-  // Handles:
-  // - Initializing the app from storage.
-  // - Orchestrating MVC.
-  const [appState, dispatch] = useAppReducer({ initialState: ... });
+	// Handles:
+	// - Initializing the app from storage.
+	// - Orchestrating MVC.
+	const [appState, dispatch] = useAppReducer({ initialState: ... });
 
-  // All of the various handlers.
-  const handleSidebarResize = () => {
-    ...
-  };
+	// All of the various handlers.
+	const handleSidebarResize = () => {
+		...
+	};
 
-  // ...
+	// ...
 
-  // Pipe state + actions through to view components.
-  return (
-    <Container ..>
-      <Sidebar .. />
-      <Canvas .. />
-    </Container>
-  );
+	// Pipe state + actions through to view components.
+	return (
+		<Container ..>
+			<Sidebar .. />
+			<Canvas .. />
+		</Container>
+	);
 }
 ```
 
@@ -97,6 +97,8 @@ General state: `exportFormat`.
 
 Note, general state may still be consumed or displayed in the UI, but it is not inherent to the UI. For example, `exportFormat` would be applicable to a cli or a UI, while `sidebarWidth` is clearly not applicable to a cli.
 
+All app state must live in `appState` and be modified via the `useAppState` reducer.
+
 ## Test Design
 
 Publicly exported functions, hooks, components should have unit test.
@@ -105,3 +107,56 @@ Publicly exported functions, hooks, components should have unit test.
 - The tests should cover standard usage.
 - The tests should cover edge cases.
 - The tests must follow `Arrange-Act-Assert` structure.
+
+## Code Design
+
+**DO** reduce indentation.
+
+- Use early returns.
+- Factor out to helper functions.
+- Push `if` and `try` blocks up or down the stack.
+
+**DO** add concise summary comments over sections of code.
+
+```tsx
+// GOOD.
+function makeRecipe() {
+  // Set up the kitchen.
+  turnOnOven(350);
+  gatherIngredients(bread, mayo, salt, pepper, turkey, lettuce);
+
+  // Make the sandwich.
+  waitForOven().thenAdd(bread).thenWaitMinutes(5);
+  const sandwich = combineIngredients(
+    bread,
+    mayo,
+    salt,
+    pepper,
+    turkey,
+    lettuce,
+  );
+
+  // Deliver the meal.
+  handOffToRobot(sandwich);
+  sendToRoom(robot);
+}
+
+// BAD.
+function makeRecipe() {
+  turnOnOven(350);
+  gatherIngredients(bread, mayo, salt, pepper, turkey, lettuce);
+  waitForOven().thenAdd(bread).thenWaitMinutes(5);
+  const sandwich = combineIngredients(
+    bread,
+    mayo,
+    salt,
+    pepper,
+    turkey,
+    lettuce,
+  );
+  handOffToRobot(sandwich);
+  sendToRoom(robot);
+}
+```
+
+**DO NOT** allow modules to exceed 1200 lines of code. At this point, the module should be split and refactored.
