@@ -1,0 +1,39 @@
+:root {
+	/* Corinthian Pink */
+	--color-primary: #d4856a;
+	/* Cinnamon Rufous */
+	--color-secondary: #89331f;
+	/* Golden Yellow */
+	--color-accent: #f0c83c;
+
+	--color-bg: #1a1a1a;
+	--color-surface: #2a2a2a;
+	--color-surface-hover: #333;
+	--color-text: #f0f0f0;
+	--color-text-muted: #999;
+	--color-border: #444;
+
+	--sidebar-default-percent: 20;
+	--sidebar-collapse-threshold: 5;
+
+	font-family: system-ui, -apple-system, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+body {
+	background: var(--color-bg);
+	color: var(--color-text);
+	overflow: hidden;
+	height: 100dvh;
+}
+
+#root {
+	height: 100%;
+}

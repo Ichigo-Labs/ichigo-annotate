@@ -1,0 +1,122 @@
+.palette {
+	position: absolute;
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: 10px;
+	padding: 10px;
+	min-width: 180px;
+	z-index: 100;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+	user-select: none;
+}
+
+.dragHandle {
+	cursor: grab;
+	padding: 4px 0 8px;
+	text-align: center;
+	font-size: 11px;
+	color: var(--color-text-muted);
+	letter-spacing: 2px;
+}
+
+.dragHandle:active {
+	cursor: grabbing;
+}
+
+.pills {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-bottom: 10px;
+	max-height: 200px;
+	overflow-y: auto;
+}
+
+.pill {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 5px 8px;
+	border-radius: 14px;
+	cursor: pointer;
+	border: 2px solid transparent;
+	font-size: 13px;
+	transition: border-color 0.15s;
+}
+
+.pill:hover {
+	filter: brightness(1.1);
+}
+
+.pillActive {
+	border-color: #fff;
+}
+
+.colorDot {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.pillName {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pillDelete {
+	background: none;
+	border: none;
+	color: var(--color-text-muted);
+	cursor: pointer;
+	font-size: 14px;
+	padding: 0 2px;
+	line-height: 1;
+}
+
+.pillDelete:hover {
+	color: var(--color-text);
+}
+
+.bottomRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding-top: 6px;
+	border-top: 1px solid var(--color-border);
+}
+
+.iconBtn {
+	background: none;
+	border: 1px solid var(--color-border);
+	color: var(--color-text);
+	width: 32px;
+	height: 32px;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.iconBtn:hover {
+	background: var(--color-surface-hover);
+}
+
+.newClassInput {
+	flex: 1;
+	padding: 4px 8px;
+	background: var(--color-bg);
+	border: 1px solid var(--color-primary);
+	border-radius: 4px;
+	color: var(--color-text);
+	font-size: 13px;
+	outline: none;
+}
+
+.spacer {
+	flex: 1;
+}

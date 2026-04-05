@@ -1,0 +1,63 @@
+.overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 900;
+}
+
+.card {
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: 10px;
+	padding: 24px;
+	min-width: 320px;
+}
+
+.title {
+	font-size: 18px;
+	font-weight: 600;
+	margin-bottom: 16px;
+}
+
+.formatGroup {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-bottom: 20px;
+}
+
+.formatLabel {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 14px;
+	cursor: pointer;
+}
+
+.buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+}
+
+.btn {
+	padding: 8px 20px;
+	border-radius: 6px;
+	border: 1px solid var(--color-border);
+	font-size: 14px;
+	cursor: pointer;
+}
+
+.btnPrimary {
+	background: var(--color-primary);
+	color: #fff;
+	border-color: var(--color-primary);
+}
+
+.btnSecondary {
+	background: var(--color-surface);
+	color: var(--color-text);
+}

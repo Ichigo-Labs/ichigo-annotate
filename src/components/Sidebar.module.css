@@ -1,0 +1,39 @@
+.sidebar {
+	position: relative;
+	background: var(--color-surface);
+	display: flex;
+	flex-shrink: 0;
+	overflow: hidden;
+	transition: width 0.15s ease;
+}
+
+.content {
+	flex: 1;
+	overflow: hidden;
+	min-width: 0;
+}
+
+.collapsed .content {
+	display: none;
+}
+
+.resizeHandle {
+	width: 6px;
+	cursor: col-resize;
+	background: var(--color-border);
+	flex-shrink: 0;
+	transition: background 0.15s;
+}
+
+.resizeHandle:hover,
+.resizeHandle:active {
+	background: var(--color-primary);
+}
+
+.handleRight {
+	order: 1;
+}
+
+.handleLeft {
+	order: -1;
+}

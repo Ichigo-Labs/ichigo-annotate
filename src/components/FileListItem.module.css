@@ -1,0 +1,52 @@
+.item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+	border: 2px solid transparent;
+	transition: background 0.15s;
+}
+
+.item:hover {
+	background: var(--color-surface-hover);
+}
+
+.selected {
+	border-color: var(--color-accent);
+	background: var(--color-surface-hover);
+}
+
+.thumbnail {
+	width: 36px;
+	height: 36px;
+	object-fit: cover;
+	border-radius: 3px;
+	flex-shrink: 0;
+}
+
+.name {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 13px;
+}
+
+.deleteBtn {
+	background: none;
+	border: none;
+	color: var(--color-text-muted);
+	cursor: pointer;
+	font-size: 18px;
+	line-height: 1;
+	padding: 2px 6px;
+	border-radius: 4px;
+	flex-shrink: 0;
+}
+
+.deleteBtn:hover {
+	color: var(--color-text);
+	background: var(--color-border);
+}
