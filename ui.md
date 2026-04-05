@@ -2,6 +2,14 @@
 
 The high level UI of the annotation app.
 
+## Color Design Guidelines
+
+Center colors around these three primaries.
+
+- Corinthian Pink
+- Cinnamon Rufous
+- Golden Yellow
+
 ## Sidebar
 
 - Left sidebar, but should be designed to work on either side.
