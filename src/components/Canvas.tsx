@@ -43,6 +43,7 @@ export function Canvas({
 	onSelectAnnotation,
 }: CanvasProps) {
 	const svgRef = useRef<SVGSVGElement>(null);
+	const elevatedSvgRef = useRef<SVGSVGElement>(null);
 	const isDrawing = activeLassoPoints !== null;
 
 	const handleMoveStart = (annotationId: string) => {
@@ -150,15 +151,15 @@ export function Canvas({
 					onPointerUp={handleSvgPointerUp}
 					data-testid="canvas-svg"
 				>
-					{/* Existing annotations */}
-					{annotations.map((ann) => (
+					{/* Non-selected annotations */}
+					{annotations.filter((ann) => ann.id !== selectedAnnotationId).map((ann) => (
 						<AnnotationPolygon
 							key={ann.id}
 							annotation={ann}
 							classColor={classColor(ann.classId)}
 							isDrawing={isDrawing}
 							isActiveClass={ann.classId === activeClassId}
-							isSelected={ann.id === selectedAnnotationId}
+							isSelected={false}
 							onMoveStart={handleMoveStart}
 							onMove={onAnnotationMove}
 							onMoveEnd={handleMoveEnd}
@@ -179,6 +180,34 @@ export function Canvas({
 						/>
 					)}
 				</svg>
+				{/* Elevated overlay for selected annotation (above CanvasPalette) */}
+				{selectedAnnotationId && annotations.find((ann) => ann.id === selectedAnnotationId) && (
+					<svg
+						ref={elevatedSvgRef}
+						className={styles.svgOverlayElevated}
+						viewBox="0 0 1 1"
+						preserveAspectRatio="none"
+					>
+						{(() => {
+							const ann = annotations.find((a) => a.id === selectedAnnotationId)!;
+							return (
+								<AnnotationPolygon
+									key={ann.id}
+									annotation={ann}
+									classColor={classColor(ann.classId)}
+									isDrawing={isDrawing}
+									isActiveClass={ann.classId === activeClassId}
+									isSelected={true}
+									onMoveStart={handleMoveStart}
+									onMove={onAnnotationMove}
+									onMoveEnd={handleMoveEnd}
+									onSelect={onSelectAnnotation}
+									svgRef={elevatedSvgRef}
+								/>
+							);
+						})()}
+					</svg>
+				)}
 			</div>
 		</div>
 	);
