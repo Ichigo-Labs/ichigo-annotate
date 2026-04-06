@@ -107,6 +107,14 @@
 	color: var(--color-text);
 	font-size: 13px;
 	text-align: center;
+	-moz-appearance: textfield;
+	appearance: textfield;
+}
+
+.polygonizeInput::-webkit-outer-spin-button,
+.polygonizeInput::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
 }
 
 .polygonizeInput:disabled {
