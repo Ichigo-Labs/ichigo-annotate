@@ -57,11 +57,9 @@ export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 						type="file"
 						multiple
 						accept="image/*"
-						{...{ webkitdirectory: "" } as React.InputHTMLAttributes<HTMLInputElement>}
-						onChange={(e) => {
-							const all = Array.from(e.target.files ?? []);
-							setSelectedFiles(all.filter((f) => f.type.startsWith("image/")));
-						}}
+						onChange={(e) =>
+							setSelectedFiles(Array.from(e.target.files ?? []))
+						}
 						data-testid="file-input"
 					/>
 				</div>

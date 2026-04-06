@@ -9,6 +9,7 @@ export interface AnnotationClass {
 	id: string;
 	name: string;
 	color: string; // hex, e.g. "#D4856A"
+	hidden?: boolean;
 }
 
 export interface Annotation {

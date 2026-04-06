@@ -154,7 +154,7 @@ describe("add_class", () => {
 });
 
 describe("delete_class", () => {
-	it("removes the class", () => {
+	it("hides the class instead of removing it", () => {
 		const state = createInitialState();
 		const withTwo = appReducer(state, {
 			type: "add_class",
@@ -163,10 +163,12 @@ describe("delete_class", () => {
 		});
 		const classId = withTwo.general.classes[1]!.id;
 		const next = appReducer(withTwo, { type: "delete_class", classId });
-		expect(next.general.classes).toHaveLength(1);
+		// Class still exists but is hidden.
+		expect(next.general.classes).toHaveLength(2);
+		expect(next.general.classes[1]!.hidden).toBe(true);
 	});
 
-	it("resets active class if deleted class was active", () => {
+	it("resets active class if hidden class was active", () => {
 		const state = createInitialState();
 		const withTwo = appReducer(state, {
 			type: "add_class",
@@ -180,6 +182,31 @@ describe("delete_class", () => {
 		});
 		const next = appReducer(active, { type: "delete_class", classId });
 		expect(next.ui.activeClassId).toBe("default-class");
+	});
+});
+
+describe("add_class un-hides", () => {
+	it("re-shows a hidden class with the same name", () => {
+		const state = createInitialState();
+		const withTwo = appReducer(state, {
+			type: "add_class",
+			name: "tiger",
+			color: "#ff0000",
+		});
+		const classId = withTwo.general.classes[1]!.id;
+		const hidden = appReducer(withTwo, { type: "delete_class", classId });
+		expect(hidden.general.classes[1]!.hidden).toBe(true);
+
+		const restored = appReducer(hidden, {
+			type: "add_class",
+			name: "tiger",
+			color: "#00ff00",
+		});
+		// Same class un-hidden, not a new one added.
+		expect(restored.general.classes).toHaveLength(2);
+		expect(restored.general.classes[1]!.hidden).toBeFalsy();
+		// Keeps the original color.
+		expect(restored.general.classes[1]!.color).toBe("#ff0000");
 	});
 });
 

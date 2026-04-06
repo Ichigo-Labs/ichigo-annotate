@@ -105,7 +105,7 @@ export function CanvasPalette({
 
 			{/* Class pills */}
 			<div className={styles.pills}>
-				{classes.map((cls) => (
+				{classes.filter((c) => !c.hidden).map((cls) => (
 					<div
 						key={cls.id}
 						className={`${styles.pill} ${cls.id === activeClassId ? styles.pillActive : ""}`}

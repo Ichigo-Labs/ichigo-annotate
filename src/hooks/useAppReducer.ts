@@ -233,6 +233,22 @@ function handleAddClass(
 	name: string,
 	color: string,
 ): AppState {
+	// Un-hide if a class with the same name already exists.
+	const existing = state.general.classes.find(
+		(c) => c.name === name && c.hidden,
+	);
+	if (existing) {
+		return {
+			...state,
+			general: {
+				...state.general,
+				classes: state.general.classes.map((c) =>
+					c.id === existing.id ? { ...c, hidden: false } : c,
+				),
+			},
+		};
+	}
+
 	const id = `class-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 	const newClass = { id, name, color };
 	return {
@@ -245,11 +261,15 @@ function handleAddClass(
 }
 
 function handleDeleteClass(state: AppState, classId: string): AppState {
-	const classes = state.general.classes.filter((c) => c.id !== classId);
-	// If active class was deleted, select the first remaining.
+	// Hide the class instead of removing it so annotations keep their color.
+	const classes = state.general.classes.map((c) =>
+		c.id === classId ? { ...c, hidden: true } : c,
+	);
+	const visibleClasses = classes.filter((c) => !c.hidden);
+	// If active class was hidden, select the first visible.
 	const activeClassId =
 		state.ui.activeClassId === classId
-			? (classes[0]?.id ?? "")
+			? (visibleClasses[0]?.id ?? "")
 			: state.ui.activeClassId;
 	return {
 		...state,
