@@ -5,6 +5,7 @@ interface AnnotationPolygonProps {
 	annotation: Annotation;
 	classColor: string;
 	isDrawing: boolean;
+	isActiveClass: boolean;
 	onMoveStart: (annotationId: string) => void;
 	onMove: (annotationId: string, delta: Point) => void;
 	onMoveEnd: () => void;
@@ -30,6 +31,7 @@ export function AnnotationPolygon({
 	annotation,
 	classColor,
 	isDrawing,
+	isActiveClass,
 	onMoveStart,
 	onMove,
 	onMoveEnd,
@@ -41,22 +43,32 @@ export function AnnotationPolygon({
 
 	// -- Polygon move via hold --
 
+	const pointerIdRef = useRef<number | null>(null);
+
 	const handlePolyDown = (e: React.PointerEvent) => {
-		if (isDrawing) return;
-		e.stopPropagation();
+		if (isDrawing || !isActiveClass) return;
 		const pos = pointerToSvg(e, svgRef.current);
 		if (!pos) return;
 		lastPos.current = pos;
+		pointerIdRef.current = e.pointerId;
 
+		// Don't stop propagation yet — let the SVG start a lasso.
+		// Only capture the pointer if the user holds long enough to move.
 		holdTimer.current = setTimeout(() => {
 			isDragging.current = true;
 			onMoveStart(annotation.id);
-			(e.target as Element).setPointerCapture(e.pointerId);
+			const el = svgRef.current?.querySelector(
+				`[data-annotation-id="${annotation.id}"]`,
+			);
+			if (el && pointerIdRef.current !== null) {
+				el.setPointerCapture(pointerIdRef.current);
+			}
 		}, HOLD_DELAY);
 	};
 
 	const handlePolyMove = (e: React.PointerEvent) => {
 		if (!isDragging.current) return;
+		e.stopPropagation();
 		const pos = pointerToSvg(e, svgRef.current);
 		if (!pos || !lastPos.current) return;
 		const delta = {
@@ -67,10 +79,12 @@ export function AnnotationPolygon({
 		onMove(annotation.id, delta);
 	};
 
-	const handlePolyUp = () => {
+	const handlePolyUp = (e: React.PointerEvent) => {
 		if (holdTimer.current) clearTimeout(holdTimer.current);
 		if (isDragging.current) {
+			e.stopPropagation();
 			isDragging.current = false;
+			pointerIdRef.current = null;
 			onMoveEnd();
 		}
 	};
@@ -86,6 +100,7 @@ export function AnnotationPolygon({
 			data-testid="annotation-polygon"
 		>
 			<polygon
+				data-annotation-id={annotation.id}
 				points={pointsStr}
 				fill={`${classColor}40`}
 				stroke={classColor}

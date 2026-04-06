@@ -128,6 +128,7 @@ export function Canvas({
 							annotation={ann}
 							classColor={classColor(ann.classId)}
 							isDrawing={isDrawing}
+							isActiveClass={ann.classId === activeClassId}
 							onMoveStart={onAnnotationMoveStart}
 							onMove={onAnnotationMove}
 							onMoveEnd={onAnnotationMoveEnd}

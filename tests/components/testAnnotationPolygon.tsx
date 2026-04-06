@@ -24,6 +24,7 @@ function Wrapper(props: { isDrawing?: boolean }) {
 				annotation={annotation}
 				classColor="#ff0000"
 				isDrawing={props.isDrawing ?? false}
+				isActiveClass={true}
 				onMoveStart={noop}
 				onMove={noop}
 				onMoveEnd={noop}
