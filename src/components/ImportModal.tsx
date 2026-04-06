@@ -57,8 +57,14 @@ export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 						type="file"
 						multiple
 						accept="image/*"
+						/* @ts-expect-error webkitdirectory is not in React's type defs */
+						webkitdirectory=""
 						onChange={(e) =>
-							setSelectedFiles(Array.from(e.target.files ?? []))
+							setSelectedFiles(
+								Array.from(e.target.files ?? []).filter((f) =>
+									f.type.startsWith("image/"),
+								),
+							)
 						}
 						data-testid="file-input"
 					/>
