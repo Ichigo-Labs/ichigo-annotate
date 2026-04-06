@@ -17,6 +17,7 @@ export interface StoredPrefs {
 		palettePosition: { x: number; y: number };
 		selectedFileId: string | null;
 		searchQuery: string;
+		stretchImage: boolean;
 	};
 	general: {
 		classes: AnnotationClass[];
@@ -61,6 +62,7 @@ export function savePrefs(state: AppState): void {
 			palettePosition: state.ui.palettePosition,
 			selectedFileId: state.ui.selectedFileId,
 			searchQuery: state.ui.searchQuery,
+			stretchImage: state.ui.stretchImage,
 		},
 		general: {
 			classes: state.general.classes,

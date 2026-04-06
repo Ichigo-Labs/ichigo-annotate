@@ -10,6 +10,7 @@ interface FileListProps {
 	lastDeletedFile: ImageFile | null;
 	polygonize: boolean;
 	polygonizeSides: number;
+	stretchImage: boolean;
 	onSearchChange: (query: string) => void;
 	onSelectFile: (fileId: string) => void;
 	onDeleteFile: (fileId: string) => void;
@@ -18,6 +19,7 @@ interface FileListProps {
 	onExportClick: () => void;
 	onPolygonizeChange: (enabled: boolean) => void;
 	onPolygonizeSidesChange: (sides: number) => void;
+	onStretchImageChange: (enabled: boolean) => void;
 }
 
 export function FileList({
@@ -33,8 +35,10 @@ export function FileList({
 	onExportClick,
 	polygonize,
 	polygonizeSides,
+	stretchImage,
 	onPolygonizeChange,
 	onPolygonizeSidesChange,
+	onStretchImageChange,
 }: FileListProps) {
 	const [sidesText, setSidesText] = useState(String(polygonizeSides));
 
@@ -130,6 +134,18 @@ export function FileList({
 					}}
 					data-testid="polygonize-sides"
 				/>
+			</div>
+
+			<div className={styles.polygonizeRow} data-testid="stretch-row">
+				<label className={styles.polygonizeLabel}>
+					<input
+						type="checkbox"
+						checked={stretchImage}
+						onChange={(e) => onStretchImageChange(e.target.checked)}
+						data-testid="stretch-checkbox"
+					/>
+					Stretch image
+				</label>
 			</div>
 		</div>
 	);

@@ -35,8 +35,10 @@ const defaultProps = {
 	onExportClick: noop,
 	polygonize: false,
 	polygonizeSides: 4,
+	stretchImage: true,
 	onPolygonizeChange: noop,
 	onPolygonizeSidesChange: noop,
+	onStretchImageChange: noop,
 };
 
 describe("FileList", () => {

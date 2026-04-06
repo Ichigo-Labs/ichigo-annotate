@@ -11,6 +11,7 @@ interface CanvasProps {
 	activeLassoPoints: Point[] | null;
 	activeClassId: string;
 	selectedAnnotationId: string | null;
+	stretchImage: boolean;
 	trashRef: React.RefObject<HTMLDivElement | null>;
 	onLassoStart: (point: Point) => void;
 	onLassoPoint: (point: Point) => void;
@@ -32,6 +33,7 @@ export function Canvas({
 	activeLassoPoints,
 	activeClassId,
 	selectedAnnotationId,
+	stretchImage,
 	trashRef,
 	onLassoStart,
 	onLassoPoint,
@@ -134,9 +136,9 @@ export function Canvas({
 
 	return (
 		<div className={styles.container} data-testid="canvas">
-			<div className={styles.imageWrapper}>
+			<div className={stretchImage ? styles.imageWrapperStretch : styles.imageWrapper}>
 				<img
-					className={styles.image}
+					className={stretchImage ? styles.imageStretch : styles.image}
 					src={imageDataUrl}
 					alt="Annotation target"
 					draggable={false}

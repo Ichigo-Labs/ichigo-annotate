@@ -255,11 +255,15 @@ export function App() {
 					onExportClick={() => dispatch({ type: "open_export_modal" })}
 					polygonize={appState.general.polygonize}
 					polygonizeSides={appState.general.polygonizeSides}
+					stretchImage={appState.ui.stretchImage}
 					onPolygonizeChange={(enabled) =>
 						dispatch({ type: "set_polygonize", enabled })
 					}
 					onPolygonizeSidesChange={(sides) =>
 						dispatch({ type: "set_polygonize_sides", sides })
+					}
+					onStretchImageChange={(enabled) =>
+						dispatch({ type: "set_stretch_image", enabled })
 					}
 				/>
 			</Sidebar>
@@ -273,6 +277,7 @@ export function App() {
 					activeLassoPoints={appState.ui.activeLassoPoints}
 					activeClassId={appState.ui.activeClassId}
 					selectedAnnotationId={appState.ui.selectedAnnotationId}
+					stretchImage={appState.ui.stretchImage}
 					trashRef={trashRef}
 					onLassoStart={(p) =>
 						dispatch({ type: "start_lasso", point: p })

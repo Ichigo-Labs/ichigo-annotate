@@ -45,3 +45,60 @@ describe("round-trip", () => {
 		expect(back.y).toBeCloseTo(screenY);
 	});
 });
+
+// These tests verify that normalization works correctly when the
+// canvas fills the full available space (image stretched to fit).
+
+describe("wide container (landscape stretch)", () => {
+	const wide = { left: 0, top: 0, width: 1000, height: 200 };
+
+	it("normalizes corners to 0 and 1", () => {
+		expect(screenToNormalized(0, 0, wide)).toEqual({ x: 0, y: 0 });
+		expect(screenToNormalized(1000, 200, wide)).toEqual({ x: 1, y: 1 });
+	});
+
+	it("normalizes center correctly", () => {
+		expect(screenToNormalized(500, 100, wide)).toEqual({ x: 0.5, y: 0.5 });
+	});
+
+	it("round-trips through non-square rect", () => {
+		const p = screenToNormalized(750, 50, wide)!;
+		const back = normalizedToScreen(p, wide);
+		expect(back.x).toBeCloseTo(750);
+		expect(back.y).toBeCloseTo(50);
+	});
+});
+
+describe("tall container (portrait stretch)", () => {
+	const tall = { left: 0, top: 0, width: 200, height: 1000 };
+
+	it("normalizes corners to 0 and 1", () => {
+		expect(screenToNormalized(0, 0, tall)).toEqual({ x: 0, y: 0 });
+		expect(screenToNormalized(200, 1000, tall)).toEqual({ x: 1, y: 1 });
+	});
+
+	it("normalizes center correctly", () => {
+		expect(screenToNormalized(100, 500, tall)).toEqual({ x: 0.5, y: 0.5 });
+	});
+
+	it("round-trips through non-square rect", () => {
+		const p = screenToNormalized(40, 800, tall)!;
+		const back = normalizedToScreen(p, tall);
+		expect(back.x).toBeCloseTo(40);
+		expect(back.y).toBeCloseTo(800);
+	});
+});
+
+describe("offset container", () => {
+	const offset = { left: 300, top: 100, width: 400, height: 300 };
+
+	it("accounts for left/top offset", () => {
+		expect(screenToNormalized(300, 100, offset)).toEqual({ x: 0, y: 0 });
+		expect(screenToNormalized(500, 250, offset)).toEqual({ x: 0.5, y: 0.5 });
+	});
+
+	it("rejects points outside the offset rect", () => {
+		expect(screenToNormalized(200, 100, offset)).toBeNull();
+		expect(screenToNormalized(300, 50, offset)).toBeNull();
+	});
+});

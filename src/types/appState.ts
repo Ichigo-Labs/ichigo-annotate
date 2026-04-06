@@ -48,6 +48,7 @@ export interface UIState {
 	palettePosition: { x: number; y: number };
 	importModalOpen: boolean;
 	exportModalOpen: boolean;
+	stretchImage: boolean;
 	draggingAnnotationId: string | null;
 	selectedAnnotationId: string | null;
 	toasts: Toast[];
@@ -87,6 +88,7 @@ export type AppAction =
 	| { type: "add_class"; name: string; color: string }
 	| { type: "delete_class"; classId: string }
 	| { type: "rename_class"; classId: string; name: string }
+	| { type: "set_stretch_image"; enabled: boolean }
 	| { type: "set_polygonize"; enabled: boolean }
 	| { type: "set_polygonize_sides"; sides: number }
 	| { type: "start_lasso"; point: Point }
@@ -141,6 +143,7 @@ export function createInitialState(): AppState {
 			palettePosition: { x: 16, y: 16 },
 			importModalOpen: false,
 			exportModalOpen: false,
+			stretchImage: true,
 			draggingAnnotationId: null,
 			selectedAnnotationId: null,
 			toasts: [],

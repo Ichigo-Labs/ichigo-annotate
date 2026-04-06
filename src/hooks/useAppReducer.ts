@@ -63,6 +63,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 		case "rename_class":
 			return handleRenameClass(state, action.classId, action.name);
 
+		// -- Stretch --
+		case "set_stretch_image":
+			return {
+				...state,
+				ui: { ...state.ui, stretchImage: action.enabled },
+			};
+
 		// -- Polygonize --
 		case "set_polygonize":
 			return {

@@ -29,6 +29,7 @@ const defaultProps = {
 	activeLassoPoints: null as null | { x: number; y: number }[],
 	activeClassId: "c1",
 	selectedAnnotationId: null as string | null,
+	stretchImage: true,
 	trashRef: createRef<HTMLDivElement>(),
 	onLassoStart: noop,
 	onLassoPoint: noop,
@@ -68,5 +69,30 @@ describe("Canvas", () => {
 		];
 		render(<Canvas {...defaultProps} activeLassoPoints={lassoPoints} />);
 		expect(screen.getByTestId("lasso-line")).toBeInTheDocument();
+	});
+
+	it("SVG uses 0-1 viewBox with no aspect ratio preservation", () => {
+		render(<Canvas {...defaultProps} />);
+		const svg = screen.getByTestId("canvas-svg");
+		expect(svg.getAttribute("viewBox")).toBe("0 0 1 1");
+		expect(svg.getAttribute("preserveAspectRatio")).toBe("none");
+	});
+
+	it("renders annotation polygon vertices in normalized 0-1 coords", () => {
+		render(<Canvas {...defaultProps} annotations={annotations} />);
+		const polygon = screen
+			.getByTestId("annotation-polygon")
+			.querySelector("polygon:not([data-testid])");
+		expect(polygon).not.toBeNull();
+		const points = polygon!.getAttribute("points")!;
+		// All coordinate values should be between 0 and 1.
+		const values = points
+			.split(/[\s,]+/)
+			.map(Number)
+			.filter((n) => !isNaN(n));
+		for (const v of values) {
+			expect(v).toBeGreaterThanOrEqual(0);
+			expect(v).toBeLessThanOrEqual(1);
+		}
 	});
 });

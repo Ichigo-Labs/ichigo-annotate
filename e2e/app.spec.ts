@@ -241,6 +241,100 @@ test.describe("Import with annotations", () => {
 	});
 });
 
+test.describe("Canvas layout", () => {
+	test("image fills the full canvas area", async ({ page }) => {
+		await page.goto("/");
+
+		// Import an image.
+		await page.getByTestId("import-btn").click();
+		await page
+			.getByTestId("file-input")
+			.setInputFiles(path.join(fixtures, "single-image"));
+		await page.getByTestId("import-done").click();
+
+		// The image and SVG should fill their container.
+		const img = page.locator("img[alt='Annotation target']");
+		const svg = page.getByTestId("canvas-svg");
+		await expect(img).toBeVisible();
+		await expect(svg).toBeVisible();
+
+		const imgBox = await img.boundingBox();
+		const svgBox = await svg.boundingBox();
+		expect(imgBox).not.toBeNull();
+		expect(svgBox).not.toBeNull();
+
+		// Image and SVG should have the same position and size.
+		expect(imgBox!.x).toBeCloseTo(svgBox!.x, 0);
+		expect(imgBox!.y).toBeCloseTo(svgBox!.y, 0);
+		expect(imgBox!.width).toBeCloseTo(svgBox!.width, 0);
+		expect(imgBox!.height).toBeCloseTo(svgBox!.height, 0);
+
+		// Image should fill substantially more than half the viewport width
+		// (proving it's stretched, not just contained at natural size).
+		const viewport = page.viewportSize()!;
+		expect(imgBox!.width).toBeGreaterThan(viewport.width * 0.5);
+		expect(imgBox!.height).toBeGreaterThan(viewport.height * 0.5);
+	});
+
+	test("lasso drawing produces correctly positioned annotation", async ({ page }) => {
+		await page.goto("/");
+
+		// Import an image.
+		await page.getByTestId("import-btn").click();
+		await page
+			.getByTestId("file-input")
+			.setInputFiles(path.join(fixtures, "single-image"));
+		await page.getByTestId("import-done").click();
+		await expect(
+			page.locator("img[alt='Annotation target']"),
+		).toBeVisible();
+
+		// Get the SVG bounding box for coordinate calculation.
+		const svg = page.getByTestId("canvas-svg");
+		const box = (await svg.boundingBox())!;
+
+		// Draw a lasso triangle: start near top-left, drag to right,
+		// then down, then back near start.
+		const x1 = box.x + box.width * 0.2;
+		const y1 = box.y + box.height * 0.2;
+		const x2 = box.x + box.width * 0.8;
+		const y2 = box.y + box.height * 0.2;
+		const x3 = box.x + box.width * 0.5;
+		const y3 = box.y + box.height * 0.8;
+
+		// Draw the lasso (pointer down, move through points, release near start).
+		await page.mouse.move(x1, y1);
+		await page.mouse.down();
+		// Move through the triangle vertices.
+		for (let i = 0; i <= 10; i++) {
+			const t = i / 10;
+			await page.mouse.move(
+				x1 + (x2 - x1) * t,
+				y1 + (y2 - y1) * t,
+			);
+		}
+		for (let i = 0; i <= 10; i++) {
+			const t = i / 10;
+			await page.mouse.move(
+				x2 + (x3 - x2) * t,
+				y2 + (y3 - y2) * t,
+			);
+		}
+		// Close back to start.
+		for (let i = 0; i <= 10; i++) {
+			const t = i / 10;
+			await page.mouse.move(
+				x3 + (x1 - x3) * t,
+				y3 + (y1 - y3) * t,
+			);
+		}
+		await page.mouse.up();
+
+		// An annotation polygon should now be visible.
+		await expect(page.locator("svg polygon")).toBeVisible();
+	});
+});
+
 test.describe("Sidebar", () => {
 	test("resize handle is visible", async ({ page }) => {
 		await page.goto("/");
