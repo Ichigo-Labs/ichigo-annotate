@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { Annotation, AnnotationClass, Point } from "../types/appState";
 import { distanceBetween, isPolygonClosed } from "../utils/areaUtils";
 import { AnnotationPolygon } from "./AnnotationPolygon";
@@ -16,7 +16,7 @@ interface CanvasProps {
 	onLassoCancel: () => void;
 	onAnnotationMoveStart: (annotationId: string) => void;
 	onAnnotationMove: (annotationId: string, delta: Point) => void;
-	onAnnotationMoveEnd: () => void;
+	onAnnotationMoveEnd: (annotationId: string, droppedOnTrash: boolean) => void;
 }
 
 const MIN_POINT_DISTANCE = 0.008;
@@ -37,7 +37,32 @@ export function Canvas({
 	onAnnotationMoveEnd,
 }: CanvasProps) {
 	const svgRef = useRef<SVGSVGElement>(null);
+	const trashRef = useRef<HTMLDivElement>(null);
+	const [draggingId, setDraggingId] = useState<string | null>(null);
 	const isDrawing = activeLassoPoints !== null;
+
+	const handleMoveStart = (annotationId: string) => {
+		setDraggingId(annotationId);
+		onAnnotationMoveStart(annotationId);
+	};
+
+	const handleMoveEnd = (annotationId: string, screenX: number, screenY: number) => {
+		const onTrash = isOverTrash(screenX, screenY);
+		setDraggingId(null);
+		onAnnotationMoveEnd(annotationId, onTrash);
+	};
+
+	const isOverTrash = (screenX: number, screenY: number): boolean => {
+		const el = trashRef.current;
+		if (!el) return false;
+		const rect = el.getBoundingClientRect();
+		return (
+			screenX >= rect.left &&
+			screenX <= rect.right &&
+			screenY >= rect.top &&
+			screenY <= rect.bottom
+		);
+	};
 
 	// Convert pointer event to SVG coordinates.
 	const toSvgCoords = (e: React.PointerEvent): Point | null => {
@@ -129,9 +154,9 @@ export function Canvas({
 							classColor={classColor(ann.classId)}
 							isDrawing={isDrawing}
 							isActiveClass={ann.classId === activeClassId}
-							onMoveStart={onAnnotationMoveStart}
+							onMoveStart={handleMoveStart}
 							onMove={onAnnotationMove}
-							onMoveEnd={onAnnotationMoveEnd}
+							onMoveEnd={handleMoveEnd}
 							svgRef={svgRef}
 						/>
 					))}
@@ -149,6 +174,17 @@ export function Canvas({
 					)}
 				</svg>
 			</div>
+
+			{/* Trash drop target — visible while dragging an annotation */}
+			{draggingId && (
+				<div
+					ref={trashRef}
+					className={styles.trashTarget}
+					data-testid="trash-target"
+				>
+					🗑
+				</div>
+			)}
 		</div>
 	);
 }

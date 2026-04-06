@@ -8,7 +8,7 @@ interface AnnotationPolygonProps {
 	isActiveClass: boolean;
 	onMoveStart: (annotationId: string) => void;
 	onMove: (annotationId: string, delta: Point) => void;
-	onMoveEnd: () => void;
+	onMoveEnd: (annotationId: string, screenX: number, screenY: number) => void;
 	svgRef: React.RefObject<SVGSVGElement | null>;
 }
 
@@ -85,7 +85,7 @@ export function AnnotationPolygon({
 			e.stopPropagation();
 			isDragging.current = false;
 			pointerIdRef.current = null;
-			onMoveEnd();
+			onMoveEnd(annotation.id, e.clientX, e.clientY);
 		}
 	};
 

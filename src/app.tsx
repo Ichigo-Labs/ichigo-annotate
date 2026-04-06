@@ -133,7 +133,15 @@ export function App() {
 							delta,
 						});
 					}}
-					onAnnotationMoveEnd={() => {}}
+					onAnnotationMoveEnd={(annotationId, droppedOnTrash) => {
+						if (droppedOnTrash && selectedFile) {
+							dispatch({
+								type: "delete_annotation",
+								fileId: selectedFile.id,
+								annotationId,
+							});
+						}
+					}}
 				/>
 				<CanvasPalette
 					classes={appState.general.classes}
