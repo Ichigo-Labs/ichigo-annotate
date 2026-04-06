@@ -4,7 +4,7 @@ import {
 	SIDEBAR_COLLAPSE_THRESHOLD,
 	createInitialState,
 } from "../types/appState";
-import { translatePolygon } from "../utils/areaUtils";
+import { polygonizeVertices, translatePolygon } from "../utils/areaUtils";
 import { loadFullState, saveFiles, savePrefs } from "../services/appStorage";
 
 // --- Reducer (exported for direct testing) ---
@@ -62,6 +62,21 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 			return handleDeleteClass(state, action.classId);
 		case "rename_class":
 			return handleRenameClass(state, action.classId, action.name);
+
+		// -- Polygonize --
+		case "set_polygonize":
+			return {
+				...state,
+				general: { ...state.general, polygonize: action.enabled },
+			};
+		case "set_polygonize_sides":
+			return {
+				...state,
+				general: {
+					...state.general,
+					polygonizeSides: Math.max(3, action.sides),
+				},
+			};
 
 		// -- Lasso --
 		case "start_lasso":
@@ -276,10 +291,15 @@ function handleCompleteLasso(state: AppState): AppState {
 		return { ...state, ui: { ...state.ui, activeLassoPoints: null } };
 	}
 
+	// Polygonize if enabled.
+	const finalVertices = state.general.polygonize
+		? polygonizeVertices(points, state.general.polygonizeSides)
+		: points;
+
 	const annotation = {
 		id: `ann-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
 		classId: state.ui.activeClassId,
-		vertices: points,
+		vertices: finalVertices,
 	};
 
 	return {

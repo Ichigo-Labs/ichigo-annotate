@@ -183,6 +183,63 @@ describe("delete_class", () => {
 	});
 });
 
+// -- Polygonize --
+
+describe("set_polygonize", () => {
+	it("enables polygonize", () => {
+		const state = createInitialState();
+		const next = appReducer(state, { type: "set_polygonize", enabled: true });
+		expect(next.general.polygonize).toBe(true);
+	});
+});
+
+describe("set_polygonize_sides", () => {
+	it("sets the number of sides", () => {
+		const state = createInitialState();
+		const next = appReducer(state, { type: "set_polygonize_sides", sides: 6 });
+		expect(next.general.polygonizeSides).toBe(6);
+	});
+
+	it("clamps to minimum of 3", () => {
+		const state = createInitialState();
+		const next = appReducer(state, { type: "set_polygonize_sides", sides: 1 });
+		expect(next.general.polygonizeSides).toBe(3);
+	});
+});
+
+describe("complete_lasso with polygonize", () => {
+	it("simplifies annotation vertices when polygonize is enabled", () => {
+		// Create a freeform lasso with many points.
+		const lassoPoints = Array.from({ length: 20 }, (_, i) => {
+			const angle = (i / 20) * Math.PI * 2;
+			return { x: 0.5 + 0.3 * Math.cos(angle), y: 0.5 + 0.3 * Math.sin(angle) };
+		});
+		const f = makeFile("f1", "img.png");
+		const state = stateWith({
+			ui: { selectedFileId: "f1", activeLassoPoints: lassoPoints },
+			general: { files: [f], polygonize: true, polygonizeSides: 4 },
+		});
+		const next = appReducer(state, { type: "complete_lasso" });
+		const ann = next.general.files[0]!.annotations[0]!;
+		expect(ann.vertices).toHaveLength(4);
+	});
+
+	it("keeps all vertices when polygonize is disabled", () => {
+		const lassoPoints = Array.from({ length: 20 }, (_, i) => {
+			const angle = (i / 20) * Math.PI * 2;
+			return { x: 0.5 + 0.3 * Math.cos(angle), y: 0.5 + 0.3 * Math.sin(angle) };
+		});
+		const f = makeFile("f1", "img.png");
+		const state = stateWith({
+			ui: { selectedFileId: "f1", activeLassoPoints: lassoPoints },
+			general: { files: [f], polygonize: false, polygonizeSides: 4 },
+		});
+		const next = appReducer(state, { type: "complete_lasso" });
+		const ann = next.general.files[0]!.annotations[0]!;
+		expect(ann.vertices).toHaveLength(20);
+	});
+});
+
 describe("rename_class", () => {
 	it("renames a class", () => {
 		const state = createInitialState();

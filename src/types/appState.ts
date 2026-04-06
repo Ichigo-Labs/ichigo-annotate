@@ -58,6 +58,8 @@ export interface GeneralState {
 	classes: AnnotationClass[];
 	exportFormat: ExportFormat;
 	lastDeletedFile: ImageFile | null;
+	polygonize: boolean;
+	polygonizeSides: number;
 }
 
 // --- Combined ---
@@ -83,6 +85,8 @@ export type AppAction =
 	| { type: "add_class"; name: string; color: string }
 	| { type: "delete_class"; classId: string }
 	| { type: "rename_class"; classId: string; name: string }
+	| { type: "set_polygonize"; enabled: boolean }
+	| { type: "set_polygonize_sides"; sides: number }
 	| { type: "start_lasso"; point: Point }
 	| { type: "add_lasso_point"; point: Point }
 	| { type: "complete_lasso" }
@@ -141,6 +145,8 @@ export function createInitialState(): AppState {
 			classes: [DEFAULT_CLASS],
 			exportFormat: "yolo",
 			lastDeletedFile: null,
+			polygonize: false,
+			polygonizeSides: 4,
 		},
 	};
 }

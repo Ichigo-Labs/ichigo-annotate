@@ -96,6 +96,14 @@ export function App() {
 					onUndoDelete={() => dispatch({ type: "undo_delete_file" })}
 					onImportClick={() => dispatch({ type: "open_import_modal" })}
 					onExportClick={() => dispatch({ type: "open_export_modal" })}
+					polygonize={appState.general.polygonize}
+					polygonizeSides={appState.general.polygonizeSides}
+					onPolygonizeChange={(enabled) =>
+						dispatch({ type: "set_polygonize", enabled })
+					}
+					onPolygonizeSidesChange={(sides) =>
+						dispatch({ type: "set_polygonize_sides", sides })
+					}
 				/>
 			</Sidebar>
 

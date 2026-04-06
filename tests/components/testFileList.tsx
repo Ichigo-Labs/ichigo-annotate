@@ -33,6 +33,10 @@ const defaultProps = {
 	onUndoDelete: noop,
 	onImportClick: noop,
 	onExportClick: noop,
+	polygonize: false,
+	polygonizeSides: 4,
+	onPolygonizeChange: noop,
+	onPolygonizeSidesChange: noop,
 };
 
 describe("FileList", () => {
@@ -86,5 +90,30 @@ describe("FileList", () => {
 		expect(onImportClick).toHaveBeenCalledOnce();
 		fireEvent.click(screen.getByTestId("export-btn"));
 		expect(onExportClick).toHaveBeenCalledOnce();
+	});
+
+	it("renders polygonize checkbox and sides input", () => {
+		render(<FileList {...defaultProps} />);
+		expect(screen.getByTestId("polygonize-checkbox")).toBeInTheDocument();
+		expect(screen.getByTestId("polygonize-sides")).toBeInTheDocument();
+	});
+
+	it("polygonize checkbox calls onPolygonizeChange", () => {
+		const onPolygonizeChange = vi.fn();
+		render(
+			<FileList {...defaultProps} onPolygonizeChange={onPolygonizeChange} />,
+		);
+		fireEvent.click(screen.getByTestId("polygonize-checkbox"));
+		expect(onPolygonizeChange).toHaveBeenCalledWith(true);
+	});
+
+	it("sides input is disabled when polygonize is off", () => {
+		render(<FileList {...defaultProps} polygonize={false} />);
+		expect(screen.getByTestId("polygonize-sides")).toBeDisabled();
+	});
+
+	it("sides input is enabled when polygonize is on", () => {
+		render(<FileList {...defaultProps} polygonize={true} />);
+		expect(screen.getByTestId("polygonize-sides")).not.toBeDisabled();
 	});
 });

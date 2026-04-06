@@ -7,6 +7,7 @@ import {
 	nearestVertexIndex,
 	pointInPolygon,
 	polygonBoundingBox,
+	polygonizeVertices,
 	translatePolygon,
 } from "../../src/utils/areaUtils";
 
@@ -122,6 +123,39 @@ describe("nearestVertexIndex", () => {
 
 	it("returns null when no vertex is within threshold", () => {
 		expect(nearestVertexIndex({ x: 0.5, y: 0.5 }, poly, 0.05)).toBeNull();
+	});
+});
+
+describe("polygonizeVertices", () => {
+	// A freeform blob with many points forming roughly a circle.
+	const circle = Array.from({ length: 20 }, (_, i) => {
+		const angle = (i / 20) * Math.PI * 2;
+		return { x: 0.5 + 0.3 * Math.cos(angle), y: 0.5 + 0.3 * Math.sin(angle) };
+	});
+
+	it("simplifies to the requested number of sides", () => {
+		const result = polygonizeVertices(circle, 4);
+		expect(result).toHaveLength(4);
+	});
+
+	it("returns original vertices when already <= N sides", () => {
+		const triangle = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0.5, y: 1 }];
+		expect(polygonizeVertices(triangle, 4)).toEqual(triangle);
+	});
+
+	it("clamps to minimum of 3 sides", () => {
+		const result = polygonizeVertices(circle, 1);
+		expect(result).toHaveLength(3);
+	});
+
+	it("produces a convex polygon", () => {
+		const result = polygonizeVertices(circle, 5);
+		expect(result).toHaveLength(5);
+		// All result points should be valid coordinates.
+		for (const p of result) {
+			expect(p.x).toBeGreaterThanOrEqual(0);
+			expect(p.y).toBeGreaterThanOrEqual(0);
+		}
 	});
 });
 

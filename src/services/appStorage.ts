@@ -21,6 +21,8 @@ export interface StoredPrefs {
 	general: {
 		classes: AnnotationClass[];
 		exportFormat: ExportFormat;
+		polygonize: boolean;
+		polygonizeSides: number;
 	};
 }
 
@@ -63,6 +65,8 @@ export function savePrefs(state: AppState): void {
 		general: {
 			classes: state.general.classes,
 			exportFormat: state.general.exportFormat,
+			polygonize: state.general.polygonize,
+			polygonizeSides: state.general.polygonizeSides,
 		},
 	};
 	try {

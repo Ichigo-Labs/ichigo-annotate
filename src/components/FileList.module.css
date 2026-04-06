@@ -80,3 +80,35 @@
 	background: var(--color-surface-hover);
 	border-color: var(--color-primary);
 }
+
+.polygonizeRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px;
+	border-top: 1px solid var(--color-border);
+}
+
+.polygonizeLabel {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+	cursor: pointer;
+	flex: 1;
+}
+
+.polygonizeInput {
+	width: 48px;
+	padding: 4px 6px;
+	background: var(--color-bg);
+	border: 1px solid var(--color-border);
+	border-radius: 4px;
+	color: var(--color-text);
+	font-size: 13px;
+	text-align: center;
+}
+
+.polygonizeInput:disabled {
+	opacity: 0.4;
+}

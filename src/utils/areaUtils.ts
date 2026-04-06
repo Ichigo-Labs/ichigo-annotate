@@ -86,6 +86,73 @@ export function nearestVertexIndex(
 	return bestIdx;
 }
 
+// Simplify a polygon to N vertices by iteratively removing the vertex
+// that causes the least area loss (Visvalingam-Whyatt approach).
+export function polygonizeVertices(vertices: Point[], sides: number): Point[] {
+	if (sides < 3) sides = 3;
+	if (vertices.length <= sides) return vertices;
+
+	// Start from the convex hull to maximize enclosed area.
+	let pts = convexHull(vertices);
+	if (pts.length <= sides) return pts;
+
+	// Iteratively remove the vertex with the smallest triangle area.
+	while (pts.length > sides) {
+		let minArea = Infinity;
+		let minIdx = 0;
+		for (let i = 0; i < pts.length; i++) {
+			const prev = pts[(i - 1 + pts.length) % pts.length]!;
+			const curr = pts[i]!;
+			const next = pts[(i + 1) % pts.length]!;
+			const area = triangleArea(prev, curr, next);
+			if (area < minArea) {
+				minArea = area;
+				minIdx = i;
+			}
+		}
+		pts = pts.filter((_, i) => i !== minIdx);
+	}
+	return pts;
+}
+
+// Area of a triangle formed by three points (unsigned).
+function triangleArea(a: Point, b: Point, c: Point): number {
+	return Math.abs((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)) / 2;
+}
+
+// Convex hull via Andrew's monotone chain algorithm.
+function convexHull(points: Point[]): Point[] {
+	const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+	if (sorted.length <= 2) return sorted;
+
+	const cross = (o: Point, a: Point, b: Point) =>
+		(a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+
+	// Lower hull.
+	const lower: Point[] = [];
+	for (const p of sorted) {
+		while (lower.length >= 2 && cross(lower[lower.length - 2]!, lower[lower.length - 1]!, p) <= 0) {
+			lower.pop();
+		}
+		lower.push(p);
+	}
+
+	// Upper hull.
+	const upper: Point[] = [];
+	for (let i = sorted.length - 1; i >= 0; i--) {
+		const p = sorted[i]!;
+		while (upper.length >= 2 && cross(upper[upper.length - 2]!, upper[upper.length - 1]!, p) <= 0) {
+			upper.pop();
+		}
+		upper.push(p);
+	}
+
+	// Remove last point of each half because it's repeated.
+	lower.pop();
+	upper.pop();
+	return [...lower, ...upper];
+}
+
 // Generate a hex color that is visually distinct from existing colors.
 export function generateDistinctColor(existingColors: string[]): string {
 	const existingHues = existingColors.map(hexToHue);

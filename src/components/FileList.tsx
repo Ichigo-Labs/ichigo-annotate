@@ -7,12 +7,16 @@ interface FileListProps {
 	selectedFileId: string | null;
 	searchQuery: string;
 	lastDeletedFile: ImageFile | null;
+	polygonize: boolean;
+	polygonizeSides: number;
 	onSearchChange: (query: string) => void;
 	onSelectFile: (fileId: string) => void;
 	onDeleteFile: (fileId: string) => void;
 	onUndoDelete: () => void;
 	onImportClick: () => void;
 	onExportClick: () => void;
+	onPolygonizeChange: (enabled: boolean) => void;
+	onPolygonizeSidesChange: (sides: number) => void;
 }
 
 export function FileList({
@@ -26,6 +30,10 @@ export function FileList({
 	onUndoDelete,
 	onImportClick,
 	onExportClick,
+	polygonize,
+	polygonizeSides,
+	onPolygonizeChange,
+	onPolygonizeSidesChange,
 }: FileListProps) {
 	// Filter files by search query.
 	const filtered = searchQuery
@@ -88,6 +96,27 @@ export function FileList({
 				>
 					Export
 				</button>
+			</div>
+
+			<div className={styles.polygonizeRow} data-testid="polygonize-row">
+				<label className={styles.polygonizeLabel}>
+					<input
+						type="checkbox"
+						checked={polygonize}
+						onChange={(e) => onPolygonizeChange(e.target.checked)}
+						data-testid="polygonize-checkbox"
+					/>
+					Polygonize
+				</label>
+				<input
+					className={styles.polygonizeInput}
+					type="number"
+					min={3}
+					value={polygonizeSides}
+					disabled={!polygonize}
+					onChange={(e) => onPolygonizeSidesChange(Number(e.target.value))}
+					data-testid="polygonize-sides"
+				/>
 			</div>
 		</div>
 	);
