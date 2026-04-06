@@ -109,19 +109,30 @@ export function AnnotationPolygon({
 		.map((v) => `${v.x},${v.y}`)
 		.join(" ");
 
+	const filterId = `glow-${annotation.id}`;
+
 	return (
 		<g
 			style={{ pointerEvents: isDrawing ? "none" : "auto" }}
 			data-testid="annotation-polygon"
 		>
-			{/* Selection indicator — white dashed outline */}
+			{/* Glow filter for selection aura */}
+			{isSelected && (
+				<defs>
+					<filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
+						<feGaussianBlur in="SourceGraphic" stdDeviation="0.012" result="blur" />
+						<feComposite in="blur" in2="blur" operator="over" />
+					</filter>
+				</defs>
+			)}
+			{/* Selection aura — bright blurred glow behind the polygon */}
 			{isSelected && (
 				<polygon
 					points={pointsStr}
-					fill="none"
+					fill={`${classColor}80`}
 					stroke="white"
-					strokeWidth={0.006}
-					strokeDasharray="0.012 0.006"
+					strokeWidth={0.01}
+					filter={`url(#${filterId})`}
 					data-testid="selection-indicator"
 				/>
 			)}
@@ -129,8 +140,8 @@ export function AnnotationPolygon({
 				data-annotation-id={annotation.id}
 				points={pointsStr}
 				fill={`${classColor}40`}
-				stroke={classColor}
-				strokeWidth={0.003}
+				stroke={isSelected ? "white" : classColor}
+				strokeWidth={isSelected ? 0.004 : 0.003}
 				onPointerDown={handlePolyDown}
 				onPointerMove={handlePolyMove}
 				onPointerUp={handlePolyUp}
