@@ -43,6 +43,7 @@ export function Canvas({
 
 	const handleMoveStart = (annotationId: string) => {
 		setDraggingId(annotationId);
+		onLassoCancel();
 		onAnnotationMoveStart(annotationId);
 	};
 
