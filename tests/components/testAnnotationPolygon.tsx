@@ -27,9 +27,6 @@ function Wrapper(props: { isDrawing?: boolean }) {
 				onMoveStart={noop}
 				onMove={noop}
 				onMoveEnd={noop}
-				onVertexDragStart={noop}
-				onVertexDrag={noop}
-				onVertexDragEnd={noop}
 				svgRef={svgRef}
 			/>
 		</svg>
@@ -44,9 +41,9 @@ describe("AnnotationPolygon", () => {
 		expect(polygon!.getAttribute("points")).toBe("0.1,0.1 0.5,0.1 0.3,0.5");
 	});
 
-	it("renders vertex circles for each vertex", () => {
+	it("does not render vertex circles", () => {
 		render(<Wrapper />);
-		expect(screen.getAllByTestId("annotation-vertex")).toHaveLength(3);
+		expect(screen.queryAllByTestId("annotation-vertex")).toHaveLength(0);
 	});
 
 	it("has pointer-events none when drawing", () => {

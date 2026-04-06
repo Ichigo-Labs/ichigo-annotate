@@ -17,13 +17,6 @@ interface CanvasProps {
 	onAnnotationMoveStart: (annotationId: string) => void;
 	onAnnotationMove: (annotationId: string, delta: Point) => void;
 	onAnnotationMoveEnd: () => void;
-	onVertexDragStart: (annotationId: string, vertexIndex: number) => void;
-	onVertexDrag: (
-		annotationId: string,
-		vertexIndex: number,
-		newPos: Point,
-	) => void;
-	onVertexDragEnd: () => void;
 }
 
 const MIN_POINT_DISTANCE = 0.008;
@@ -42,9 +35,6 @@ export function Canvas({
 	onAnnotationMoveStart,
 	onAnnotationMove,
 	onAnnotationMoveEnd,
-	onVertexDragStart,
-	onVertexDrag,
-	onVertexDragEnd,
 }: CanvasProps) {
 	const svgRef = useRef<SVGSVGElement>(null);
 	const isDrawing = activeLassoPoints !== null;
@@ -141,9 +131,6 @@ export function Canvas({
 							onMoveStart={onAnnotationMoveStart}
 							onMove={onAnnotationMove}
 							onMoveEnd={onAnnotationMoveEnd}
-							onVertexDragStart={onVertexDragStart}
-							onVertexDrag={onVertexDrag}
-							onVertexDragEnd={onVertexDragEnd}
 							svgRef={svgRef}
 						/>
 					))}

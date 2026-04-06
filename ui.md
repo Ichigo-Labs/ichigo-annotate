@@ -92,11 +92,10 @@ Floating overlay on the canvas.
 
 After the user finishes a lasso, it becomes an `Annotation`.
 
-- Should be movable if the user taps and holds the inner area.
+- Should be movable if the user taps and holds the inner area (hold-to-move). A simple tap or draw gesture should pass through so users can draw annotations within annotations.
 - Should use the class color and be opaque so user can see underneath.
 - Should not grab focus if the user is drawing within it (to create another inner annotation).
 - The edges should be slightly darker.
-- The user should be able to tap an edge and drag it to move that point.
 
 ## SystemToast
 

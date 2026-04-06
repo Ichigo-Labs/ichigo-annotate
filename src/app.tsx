@@ -126,18 +126,6 @@ export function App() {
 						});
 					}}
 					onAnnotationMoveEnd={() => {}}
-					onVertexDragStart={() => {}}
-					onVertexDrag={(annotationId, vertexIndex, newPos) => {
-						if (!selectedFile) return;
-						dispatch({
-							type: "move_vertex",
-							fileId: selectedFile.id,
-							annotationId,
-							vertexIndex,
-							newPos,
-						});
-					}}
-					onVertexDragEnd={() => {}}
 				/>
 				<CanvasPalette
 					classes={appState.general.classes}

@@ -48,7 +48,6 @@ export interface UIState {
 	importModalOpen: boolean;
 	exportModalOpen: boolean;
 	draggingAnnotationId: string | null;
-	draggingVertexIndex: number | null;
 	toasts: Toast[];
 }
 
@@ -94,13 +93,6 @@ export type AppAction =
 			annotationId: string;
 			delta: Point;
 	  }
-	| {
-			type: "move_vertex";
-			fileId: string;
-			annotationId: string;
-			vertexIndex: number;
-			newPos: Point;
-	  }
 	| { type: "set_palette_position"; position: { x: number; y: number } }
 	| { type: "navigate_file"; direction: "forward" | "backward" }
 	| { type: "open_import_modal" }
@@ -141,7 +133,6 @@ export function createInitialState(): AppState {
 			importModalOpen: false,
 			exportModalOpen: false,
 			draggingAnnotationId: null,
-			draggingVertexIndex: null,
 			toasts: [],
 		},
 		general: {

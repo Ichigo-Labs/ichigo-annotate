@@ -34,9 +34,6 @@ const defaultProps = {
 	onAnnotationMoveStart: noop,
 	onAnnotationMove: noop,
 	onAnnotationMoveEnd: noop,
-	onVertexDragStart: noop,
-	onVertexDrag: noop,
-	onVertexDragEnd: noop,
 };
 
 describe("Canvas", () => {

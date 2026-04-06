@@ -272,36 +272,6 @@ describe("move_annotation", () => {
 	});
 });
 
-describe("move_vertex", () => {
-	it("moves a single vertex", () => {
-		const f: ImageFile = {
-			...makeFile("f1", "img.png"),
-			annotations: [
-				{
-					id: "a1",
-					classId: "default-class",
-					vertices: [
-						{ x: 0.1, y: 0.1 },
-						{ x: 0.5, y: 0.1 },
-						{ x: 0.3, y: 0.5 },
-					],
-				},
-			],
-		};
-		const state = stateWith({ general: { files: [f] } });
-		const next = appReducer(state, {
-			type: "move_vertex",
-			fileId: "f1",
-			annotationId: "a1",
-			vertexIndex: 1,
-			newPos: { x: 0.6, y: 0.2 },
-		});
-		const v = next.general.files[0]!.annotations[0]!.vertices[1]!;
-		expect(v.x).toBeCloseTo(0.6);
-		expect(v.y).toBeCloseTo(0.2);
-	});
-});
-
 describe("delete_annotation", () => {
 	it("removes the annotation", () => {
 		const f: ImageFile = {

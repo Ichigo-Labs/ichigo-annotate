@@ -4,7 +4,7 @@ import {
 	SIDEBAR_COLLAPSE_THRESHOLD,
 	createInitialState,
 } from "../types/appState";
-import { clampPoint, translatePolygon } from "../utils/areaUtils";
+import { translatePolygon } from "../utils/areaUtils";
 import { loadState, saveState } from "../services/appStorage";
 
 // --- Reducer (exported for direct testing) ---
@@ -86,15 +86,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 				action.annotationId,
 				action.delta,
 			);
-		case "move_vertex":
-			return handleMoveVertex(
-				state,
-				action.fileId,
-				action.annotationId,
-				action.vertexIndex,
-				action.newPos,
-			);
-
 		// -- Palette --
 		case "set_palette_position":
 			return {
@@ -342,39 +333,6 @@ function handleMoveAnnotation(
 							annotations: f.annotations.map((a) =>
 								a.id === annotationId
 									? { ...a, vertices: translatePolygon(a.vertices, delta) }
-									: a,
-							),
-						}
-					: f,
-			),
-		},
-	};
-}
-
-function handleMoveVertex(
-	state: AppState,
-	fileId: string,
-	annotationId: string,
-	vertexIndex: number,
-	newPos: Point,
-): AppState {
-	const clamped = clampPoint(newPos);
-	return {
-		...state,
-		general: {
-			...state.general,
-			files: state.general.files.map((f) =>
-				f.id === fileId
-					? {
-							...f,
-							annotations: f.annotations.map((a) =>
-								a.id === annotationId
-									? {
-											...a,
-											vertices: a.vertices.map((v, i) =>
-												i === vertexIndex ? clamped : v,
-											),
-										}
 									: a,
 							),
 						}

@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import type { Annotation, AnnotationClass, Point } from "../types/appState";
+import type { Annotation, Point } from "../types/appState";
 
 interface AnnotationPolygonProps {
 	annotation: Annotation;
@@ -8,13 +8,6 @@ interface AnnotationPolygonProps {
 	onMoveStart: (annotationId: string) => void;
 	onMove: (annotationId: string, delta: Point) => void;
 	onMoveEnd: () => void;
-	onVertexDragStart: (annotationId: string, vertexIndex: number) => void;
-	onVertexDrag: (
-		annotationId: string,
-		vertexIndex: number,
-		newPos: Point,
-	) => void;
-	onVertexDragEnd: () => void;
 	svgRef: React.RefObject<SVGSVGElement | null>;
 }
 
@@ -32,7 +25,6 @@ function pointerToSvg(
 }
 
 const HOLD_DELAY = 200;
-const VERTEX_RADIUS = 0.012;
 
 export function AnnotationPolygon({
 	annotation,
@@ -41,9 +33,6 @@ export function AnnotationPolygon({
 	onMoveStart,
 	onMove,
 	onMoveEnd,
-	onVertexDragStart,
-	onVertexDrag,
-	onVertexDragEnd,
 	svgRef,
 }: AnnotationPolygonProps) {
 	const holdTimer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -86,25 +75,6 @@ export function AnnotationPolygon({
 		}
 	};
 
-	// -- Vertex drag --
-
-	const handleVertexDown = (e: React.PointerEvent, idx: number) => {
-		if (isDrawing) return;
-		e.stopPropagation();
-		(e.target as Element).setPointerCapture(e.pointerId);
-		onVertexDragStart(annotation.id, idx);
-	};
-
-	const handleVertexMove = (e: React.PointerEvent, idx: number) => {
-		const pos = pointerToSvg(e, svgRef.current);
-		if (!pos) return;
-		onVertexDrag(annotation.id, idx, pos);
-	};
-
-	const handleVertexUp = () => {
-		onVertexDragEnd();
-	};
-
 	// Build polygon points string.
 	const pointsStr = annotation.vertices
 		.map((v) => `${v.x},${v.y}`)
@@ -125,25 +95,6 @@ export function AnnotationPolygon({
 				onPointerUp={handlePolyUp}
 				style={{ cursor: isDrawing ? "default" : "move" }}
 			/>
-			{annotation.vertices.map((v, i) => (
-				<circle
-					key={i}
-					cx={v.x}
-					cy={v.y}
-					r={VERTEX_RADIUS}
-					fill={classColor}
-					stroke="#fff"
-					strokeWidth={0.002}
-					style={{
-						cursor: isDrawing ? "default" : "grab",
-						pointerEvents: isDrawing ? "none" : "auto",
-					}}
-					onPointerDown={(e) => handleVertexDown(e, i)}
-					onPointerMove={(e) => handleVertexMove(e, i)}
-					onPointerUp={handleVertexUp}
-					data-testid="annotation-vertex"
-				/>
-			))}
 		</g>
 	);
 }
