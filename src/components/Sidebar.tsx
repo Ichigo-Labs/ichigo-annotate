@@ -19,8 +19,9 @@ export function Sidebar({
 	const dragging = useRef(false);
 
 	const handlePointerDown = (e: React.PointerEvent) => {
+		e.preventDefault();
 		dragging.current = true;
-		(e.target as HTMLElement).setPointerCapture(e.pointerId);
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 	};
 
 	const handlePointerMove = (e: React.PointerEvent) => {

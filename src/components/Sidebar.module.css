@@ -4,7 +4,7 @@
 	display: flex;
 	flex-shrink: 0;
 	overflow: hidden;
-	transition: width 0.15s ease;
+	transition: none;
 }
 
 .content {
@@ -23,6 +23,7 @@
 	background: var(--color-border);
 	flex-shrink: 0;
 	transition: background 0.15s;
+	touch-action: none;
 }
 
 .resizeHandle:hover,

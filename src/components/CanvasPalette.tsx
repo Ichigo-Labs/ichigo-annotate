@@ -32,13 +32,26 @@ export function CanvasPalette({
 	// -- Drag handlers --
 
 	const handleDragStart = (e: React.PointerEvent) => {
+		e.preventDefault();
 		dragRef.current = {
 			startX: e.clientX,
 			startY: e.clientY,
 			posX: position.x,
 			posY: position.y,
 		};
-		(e.target as HTMLElement).setPointerCapture(e.pointerId);
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+	};
+
+	const clampPosition = (x: number, y: number) => {
+		const el = paletteRef.current;
+		if (!el) return { x, y };
+		const w = el.offsetWidth;
+		const h = el.offsetHeight;
+		const margin = 40; // keep at least this many pixels on-screen
+		return {
+			x: Math.max(margin - w, Math.min(window.innerWidth - margin, x)),
+			y: Math.max(margin - h, Math.min(window.innerHeight - margin, y)),
+		};
 	};
 
 	const handleDragMove = (e: React.PointerEvent) => {
@@ -47,8 +60,9 @@ export function CanvasPalette({
 		const dy = e.clientY - dragRef.current.startY;
 		const el = paletteRef.current;
 		if (el) {
-			el.style.left = `${dragRef.current.posX + dx}px`;
-			el.style.top = `${dragRef.current.posY + dy}px`;
+			const clamped = clampPosition(dragRef.current.posX + dx, dragRef.current.posY + dy);
+			el.style.left = `${clamped.x}px`;
+			el.style.top = `${clamped.y}px`;
 		}
 	};
 
@@ -56,10 +70,7 @@ export function CanvasPalette({
 		if (!dragRef.current) return;
 		const dx = e.clientX - dragRef.current.startX;
 		const dy = e.clientY - dragRef.current.startY;
-		onDragEnd({
-			x: dragRef.current.posX + dx,
-			y: dragRef.current.posY + dy,
-		});
+		onDragEnd(clampPosition(dragRef.current.posX + dx, dragRef.current.posY + dy));
 		dragRef.current = null;
 	};
 
