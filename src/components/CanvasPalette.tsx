@@ -7,6 +7,8 @@ interface CanvasPaletteProps {
 	classes: AnnotationClass[];
 	activeClassId: string;
 	position: { x: number; y: number };
+	isDraggingAnnotation: boolean;
+	trashRef: React.RefObject<HTMLDivElement | null>;
 	onSelectClass: (classId: string) => void;
 	onDeleteClass: (classId: string) => void;
 	onAddClass: (name: string, color: string) => void;
@@ -18,6 +20,8 @@ export function CanvasPalette({
 	classes,
 	activeClassId,
 	position,
+	isDraggingAnnotation,
+	trashRef,
 	onSelectClass,
 	onDeleteClass,
 	onAddClass,
@@ -131,6 +135,17 @@ export function CanvasPalette({
 					</div>
 				))}
 			</div>
+
+			{/* Trash drop target — visible while dragging an annotation */}
+			{isDraggingAnnotation && (
+				<div
+					ref={trashRef}
+					className={styles.trashTarget}
+					data-testid="trash-target"
+				>
+					🗑
+				</div>
+			)}
 
 			{/* Bottom row */}
 			<div className={styles.bottomRow}>

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { CanvasPalette } from "../../src/components/CanvasPalette";
 import type { AnnotationClass } from "../../src/types/appState";
@@ -12,6 +13,8 @@ const defaultProps = {
 	classes,
 	activeClassId: "c1",
 	position: { x: 10, y: 10 },
+	isDraggingAnnotation: false,
+	trashRef: createRef<HTMLDivElement>(),
 	onSelectClass: vi.fn(),
 	onDeleteClass: vi.fn(),
 	onAddClass: vi.fn(),
@@ -70,5 +73,15 @@ describe("CanvasPalette", () => {
 		expect(onNavigate).toHaveBeenCalledWith("forward");
 		fireEvent.click(screen.getByTestId("nav-backward"));
 		expect(onNavigate).toHaveBeenCalledWith("backward");
+	});
+
+	it("shows trash target when dragging annotation", () => {
+		render(<CanvasPalette {...defaultProps} isDraggingAnnotation={true} />);
+		expect(screen.getByTestId("trash-target")).toBeInTheDocument();
+	});
+
+	it("hides trash target when not dragging", () => {
+		render(<CanvasPalette {...defaultProps} isDraggingAnnotation={false} />);
+		expect(screen.queryByTestId("trash-target")).not.toBeInTheDocument();
 	});
 });

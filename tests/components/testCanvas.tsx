@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { Canvas } from "../../src/components/Canvas";
 import type { Annotation, AnnotationClass } from "../../src/types/appState";
@@ -27,6 +28,8 @@ const defaultProps = {
 	classes,
 	activeLassoPoints: null as null | { x: number; y: number }[],
 	activeClassId: "c1",
+	selectedAnnotationId: null as string | null,
+	trashRef: createRef<HTMLDivElement>(),
 	onLassoStart: noop,
 	onLassoPoint: noop,
 	onLassoComplete: noop,
@@ -34,6 +37,7 @@ const defaultProps = {
 	onAnnotationMoveStart: noop,
 	onAnnotationMove: noop,
 	onAnnotationMoveEnd: noop,
+	onSelectAnnotation: noop,
 };
 
 describe("Canvas", () => {

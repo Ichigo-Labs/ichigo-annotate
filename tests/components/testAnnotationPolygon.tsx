@@ -16,7 +16,7 @@ const annotation = {
 const noop = vi.fn();
 
 // Wrapper to provide an SVG container and ref.
-function Wrapper(props: { isDrawing?: boolean }) {
+function Wrapper(props: { isDrawing?: boolean; isSelected?: boolean; isActiveClass?: boolean }) {
 	const svgRef = useRef<SVGSVGElement>(null);
 	return (
 		<svg ref={svgRef} data-testid="test-svg">
@@ -24,10 +24,12 @@ function Wrapper(props: { isDrawing?: boolean }) {
 				annotation={annotation}
 				classColor="#ff0000"
 				isDrawing={props.isDrawing ?? false}
-				isActiveClass={true}
+				isActiveClass={props.isActiveClass ?? true}
+				isSelected={props.isSelected ?? false}
 				onMoveStart={noop}
 				onMove={noop}
 				onMoveEnd={noop}
+				onSelect={noop}
 				svgRef={svgRef}
 			/>
 		</svg>
@@ -51,5 +53,15 @@ describe("AnnotationPolygon", () => {
 		render(<Wrapper isDrawing={true} />);
 		const g = screen.getByTestId("annotation-polygon");
 		expect(g.style.pointerEvents).toBe("none");
+	});
+
+	it("shows selection indicator when selected", () => {
+		render(<Wrapper isSelected={true} />);
+		expect(screen.getByTestId("selection-indicator")).toBeInTheDocument();
+	});
+
+	it("does not show selection indicator when not selected", () => {
+		render(<Wrapper isSelected={false} />);
+		expect(screen.queryByTestId("selection-indicator")).not.toBeInTheDocument();
 	});
 });

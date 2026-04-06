@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { useAppReducer } from "./hooks/useAppReducer";
 import { createImageFile } from "./utils/imageUtils";
 import { exportAsZip } from "./services/exportService";
@@ -12,6 +13,8 @@ import styles from "./app.module.css";
 
 export function App() {
 	const [appState, dispatch] = useAppReducer();
+	const [isDraggingAnnotation, setIsDraggingAnnotation] = useState(false);
+	const trashRef = useRef<HTMLDivElement>(null);
 
 	// -- Derived values --
 
@@ -68,6 +71,18 @@ export function App() {
 		);
 	};
 
+	const handlePillClick = (classId: string) => {
+		dispatch({ type: "set_active_class", classId });
+		if (appState.ui.selectedAnnotationId && selectedFile) {
+			dispatch({
+				type: "change_annotation_class",
+				fileId: selectedFile.id,
+				annotationId: appState.ui.selectedAnnotationId,
+				classId,
+			});
+		}
+	};
+
 	return (
 		<div className={styles.appContainer}>
 			{/* Sidebar with file list */}
@@ -115,6 +130,8 @@ export function App() {
 					classes={appState.general.classes}
 					activeLassoPoints={appState.ui.activeLassoPoints}
 					activeClassId={appState.ui.activeClassId}
+					selectedAnnotationId={appState.ui.selectedAnnotationId}
+					trashRef={trashRef}
 					onLassoStart={(p) =>
 						dispatch({ type: "start_lasso", point: p })
 					}
@@ -123,7 +140,10 @@ export function App() {
 					}
 					onLassoComplete={() => dispatch({ type: "complete_lasso" })}
 					onLassoCancel={() => dispatch({ type: "cancel_lasso" })}
-					onAnnotationMoveStart={() => {}}
+					onAnnotationMoveStart={(annotationId) => {
+						setIsDraggingAnnotation(true);
+						dispatch({ type: "select_annotation", annotationId });
+					}}
 					onAnnotationMove={(annotationId, delta) => {
 						if (!selectedFile) return;
 						dispatch({
@@ -134,6 +154,7 @@ export function App() {
 						});
 					}}
 					onAnnotationMoveEnd={(annotationId, droppedOnTrash) => {
+						setIsDraggingAnnotation(false);
 						if (droppedOnTrash && selectedFile) {
 							dispatch({
 								type: "delete_annotation",
@@ -142,14 +163,17 @@ export function App() {
 							});
 						}
 					}}
+					onSelectAnnotation={(annotationId) =>
+						dispatch({ type: "select_annotation", annotationId })
+					}
 				/>
 				<CanvasPalette
 					classes={appState.general.classes}
 					activeClassId={appState.ui.activeClassId}
 					position={appState.ui.palettePosition}
-					onSelectClass={(id) =>
-						dispatch({ type: "set_active_class", classId: id })
-					}
+					isDraggingAnnotation={isDraggingAnnotation}
+					trashRef={trashRef}
+					onSelectClass={handlePillClick}
 					onDeleteClass={(id) =>
 						dispatch({ type: "delete_class", classId: id })
 					}

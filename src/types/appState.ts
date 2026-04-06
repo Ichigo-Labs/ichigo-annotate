@@ -49,6 +49,7 @@ export interface UIState {
 	importModalOpen: boolean;
 	exportModalOpen: boolean;
 	draggingAnnotationId: string | null;
+	selectedAnnotationId: string | null;
 	toasts: Toast[];
 }
 
@@ -92,6 +93,8 @@ export type AppAction =
 	| { type: "add_lasso_point"; point: Point }
 	| { type: "complete_lasso" }
 	| { type: "cancel_lasso" }
+	| { type: "select_annotation"; annotationId: string | null }
+	| { type: "change_annotation_class"; fileId: string; annotationId: string; classId: string }
 	| { type: "delete_annotation"; fileId: string; annotationId: string }
 	| {
 			type: "move_annotation";
@@ -139,6 +142,7 @@ export function createInitialState(): AppState {
 			importModalOpen: false,
 			exportModalOpen: false,
 			draggingAnnotationId: null,
+			selectedAnnotationId: null,
 			toasts: [],
 		},
 		general: {

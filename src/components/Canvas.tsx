@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import type { Annotation, AnnotationClass, Point } from "../types/appState";
 import { distanceBetween, isPolygonClosed } from "../utils/areaUtils";
 import { AnnotationPolygon } from "./AnnotationPolygon";
@@ -10,6 +10,8 @@ interface CanvasProps {
 	classes: AnnotationClass[];
 	activeLassoPoints: Point[] | null;
 	activeClassId: string;
+	selectedAnnotationId: string | null;
+	trashRef: React.RefObject<HTMLDivElement | null>;
 	onLassoStart: (point: Point) => void;
 	onLassoPoint: (point: Point) => void;
 	onLassoComplete: () => void;
@@ -17,6 +19,7 @@ interface CanvasProps {
 	onAnnotationMoveStart: (annotationId: string) => void;
 	onAnnotationMove: (annotationId: string, delta: Point) => void;
 	onAnnotationMoveEnd: (annotationId: string, droppedOnTrash: boolean) => void;
+	onSelectAnnotation: (annotationId: string | null) => void;
 }
 
 const MIN_POINT_DISTANCE = 0.008;
@@ -28,6 +31,8 @@ export function Canvas({
 	classes,
 	activeLassoPoints,
 	activeClassId,
+	selectedAnnotationId,
+	trashRef,
 	onLassoStart,
 	onLassoPoint,
 	onLassoComplete,
@@ -35,21 +40,18 @@ export function Canvas({
 	onAnnotationMoveStart,
 	onAnnotationMove,
 	onAnnotationMoveEnd,
+	onSelectAnnotation,
 }: CanvasProps) {
 	const svgRef = useRef<SVGSVGElement>(null);
-	const trashRef = useRef<HTMLDivElement>(null);
-	const [draggingId, setDraggingId] = useState<string | null>(null);
 	const isDrawing = activeLassoPoints !== null;
 
 	const handleMoveStart = (annotationId: string) => {
-		setDraggingId(annotationId);
 		onLassoCancel();
 		onAnnotationMoveStart(annotationId);
 	};
 
 	const handleMoveEnd = (annotationId: string, screenX: number, screenY: number) => {
 		const onTrash = isOverTrash(screenX, screenY);
-		setDraggingId(null);
 		onAnnotationMoveEnd(annotationId, onTrash);
 	};
 
@@ -82,6 +84,7 @@ export function Canvas({
 		const point = toSvgCoords(e);
 		if (!point) return;
 		(e.target as Element).setPointerCapture(e.pointerId);
+		onSelectAnnotation(null);
 		onLassoStart(point);
 	};
 
@@ -155,9 +158,11 @@ export function Canvas({
 							classColor={classColor(ann.classId)}
 							isDrawing={isDrawing}
 							isActiveClass={ann.classId === activeClassId}
+							isSelected={ann.id === selectedAnnotationId}
 							onMoveStart={handleMoveStart}
 							onMove={onAnnotationMove}
 							onMoveEnd={handleMoveEnd}
+							onSelect={onSelectAnnotation}
 							svgRef={svgRef}
 						/>
 					))}
@@ -175,17 +180,6 @@ export function Canvas({
 					)}
 				</svg>
 			</div>
-
-			{/* Trash drop target — visible while dragging an annotation */}
-			{draggingId && (
-				<div
-					ref={trashRef}
-					className={styles.trashTarget}
-					data-testid="trash-target"
-				>
-					🗑
-				</div>
-			)}
 		</div>
 	);
 }

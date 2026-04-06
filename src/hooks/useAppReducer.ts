@@ -34,7 +34,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 		case "select_file":
 			return {
 				...state,
-				ui: { ...state.ui, selectedFileId: action.fileId },
+				ui: { ...state.ui, selectedFileId: action.fileId, selectedAnnotationId: null },
 			};
 		case "delete_file":
 			return handleDeleteFile(state, action.fileId);
@@ -95,6 +95,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 			};
 
 		// -- Annotation manipulation --
+		case "select_annotation":
+			return {
+				...state,
+				ui: { ...state.ui, selectedAnnotationId: action.annotationId },
+			};
+		case "change_annotation_class":
+			return handleChangeAnnotationClass(
+				state,
+				action.fileId,
+				action.annotationId,
+				action.classId,
+			);
 		case "delete_annotation":
 			return handleDeleteAnnotation(state, action.fileId, action.annotationId);
 		case "move_annotation":
@@ -336,6 +348,32 @@ function handleCompleteLasso(state: AppState): AppState {
 	};
 }
 
+function handleChangeAnnotationClass(
+	state: AppState,
+	fileId: string,
+	annotationId: string,
+	classId: string,
+): AppState {
+	return {
+		...state,
+		general: {
+			...state.general,
+			files: state.general.files.map((f) =>
+				f.id === fileId
+					? {
+							...f,
+							annotations: f.annotations.map((a) =>
+								a.id === annotationId
+									? { ...a, classId }
+									: a,
+							),
+						}
+					: f,
+			),
+		},
+	};
+}
+
 function handleDeleteAnnotation(
 	state: AppState,
 	fileId: string,
@@ -343,6 +381,13 @@ function handleDeleteAnnotation(
 ): AppState {
 	return {
 		...state,
+		ui: {
+			...state.ui,
+			selectedAnnotationId:
+				state.ui.selectedAnnotationId === annotationId
+					? null
+					: state.ui.selectedAnnotationId,
+		},
 		general: {
 			...state.general,
 			files: state.general.files.map((f) =>
@@ -406,7 +451,7 @@ function handleNavigateFile(
 
 	return {
 		...state,
-		ui: { ...state.ui, selectedFileId: files[nextIndex]!.id },
+		ui: { ...state.ui, selectedFileId: files[nextIndex]!.id, selectedAnnotationId: null },
 	};
 }
 

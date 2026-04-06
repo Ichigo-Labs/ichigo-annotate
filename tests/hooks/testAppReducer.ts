@@ -337,6 +337,116 @@ describe("lasso lifecycle", () => {
 	});
 });
 
+// -- Annotation selection & class change --
+
+describe("select_annotation", () => {
+	it("sets selectedAnnotationId", () => {
+		const state = createInitialState();
+		const next = appReducer(state, { type: "select_annotation", annotationId: "a1" });
+		expect(next.ui.selectedAnnotationId).toBe("a1");
+	});
+
+	it("clears selection with null", () => {
+		const state = stateWith({ ui: { selectedAnnotationId: "a1" } });
+		const next = appReducer(state, { type: "select_annotation", annotationId: null });
+		expect(next.ui.selectedAnnotationId).toBeNull();
+	});
+});
+
+describe("change_annotation_class", () => {
+	it("changes the classId of the target annotation", () => {
+		const f: ImageFile = {
+			...makeFile("f1", "img.png"),
+			annotations: [{ id: "a1", classId: "c1", vertices: [] }],
+		};
+		const state = stateWith({ general: { files: [f] } });
+		const next = appReducer(state, {
+			type: "change_annotation_class",
+			fileId: "f1",
+			annotationId: "a1",
+			classId: "c2",
+		});
+		expect(next.general.files[0]!.annotations[0]!.classId).toBe("c2");
+	});
+
+	it("does not affect other annotations", () => {
+		const f: ImageFile = {
+			...makeFile("f1", "img.png"),
+			annotations: [
+				{ id: "a1", classId: "c1", vertices: [] },
+				{ id: "a2", classId: "c1", vertices: [] },
+			],
+		};
+		const state = stateWith({ general: { files: [f] } });
+		const next = appReducer(state, {
+			type: "change_annotation_class",
+			fileId: "f1",
+			annotationId: "a1",
+			classId: "c2",
+		});
+		expect(next.general.files[0]!.annotations[0]!.classId).toBe("c2");
+		expect(next.general.files[0]!.annotations[1]!.classId).toBe("c1");
+	});
+});
+
+describe("selection cleared on navigation and deletion", () => {
+	it("clears selectedAnnotationId on select_file", () => {
+		const state = stateWith({
+			ui: { selectedAnnotationId: "a1" },
+			general: { files: [makeFile("f1", "img.png"), makeFile("f2", "img2.png")] },
+		});
+		const next = appReducer(state, { type: "select_file", fileId: "f2" });
+		expect(next.ui.selectedAnnotationId).toBeNull();
+	});
+
+	it("clears selectedAnnotationId on navigate_file", () => {
+		const files = [makeFile("a", "a.png"), makeFile("b", "b.png")];
+		const state = stateWith({
+			ui: { selectedFileId: "a", selectedAnnotationId: "a1" },
+			general: { files },
+		});
+		const next = appReducer(state, { type: "navigate_file", direction: "forward" });
+		expect(next.ui.selectedAnnotationId).toBeNull();
+	});
+
+	it("clears selectedAnnotationId when deleting the selected annotation", () => {
+		const f: ImageFile = {
+			...makeFile("f1", "img.png"),
+			annotations: [{ id: "a1", classId: "c1", vertices: [] }],
+		};
+		const state = stateWith({
+			ui: { selectedAnnotationId: "a1" },
+			general: { files: [f] },
+		});
+		const next = appReducer(state, {
+			type: "delete_annotation",
+			fileId: "f1",
+			annotationId: "a1",
+		});
+		expect(next.ui.selectedAnnotationId).toBeNull();
+	});
+
+	it("keeps selectedAnnotationId when deleting a different annotation", () => {
+		const f: ImageFile = {
+			...makeFile("f1", "img.png"),
+			annotations: [
+				{ id: "a1", classId: "c1", vertices: [] },
+				{ id: "a2", classId: "c1", vertices: [] },
+			],
+		};
+		const state = stateWith({
+			ui: { selectedAnnotationId: "a1" },
+			general: { files: [f] },
+		});
+		const next = appReducer(state, {
+			type: "delete_annotation",
+			fileId: "f1",
+			annotationId: "a2",
+		});
+		expect(next.ui.selectedAnnotationId).toBe("a1");
+	});
+});
+
 // -- Annotation manipulation --
 
 describe("move_annotation", () => {
