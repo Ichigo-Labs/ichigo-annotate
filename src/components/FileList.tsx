@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ImageFile } from "../types/appState";
 import { FileListItem } from "./FileListItem";
 import styles from "./FileList.module.css";
@@ -35,6 +36,8 @@ export function FileList({
 	onPolygonizeChange,
 	onPolygonizeSidesChange,
 }: FileListProps) {
+	const [sidesText, setSidesText] = useState(String(polygonizeSides));
+
 	// Filter files by search query.
 	const filtered = searchQuery
 		? files.filter((f) =>
@@ -112,9 +115,18 @@ export function FileList({
 					className={styles.polygonizeInput}
 					type="number"
 					min={3}
-					value={polygonizeSides}
+					value={sidesText}
 					disabled={!polygonize}
-					onChange={(e) => onPolygonizeSidesChange(Number(e.target.value))}
+					onChange={(e) => {
+						setSidesText(e.target.value);
+						const n = parseInt(e.target.value, 10);
+						if (!isNaN(n)) onPolygonizeSidesChange(n);
+					}}
+					onBlur={() => {
+						const n = parseInt(sidesText, 10);
+						const clamped = isNaN(n) || n < 3 ? polygonizeSides : n;
+						setSidesText(String(clamped));
+					}}
 					data-testid="polygonize-sides"
 				/>
 			</div>
