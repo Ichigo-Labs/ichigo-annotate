@@ -1,16 +1,19 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import type { AppAction, AppState, Point } from "../types/appState";
 import {
 	SIDEBAR_COLLAPSE_THRESHOLD,
 	createInitialState,
 } from "../types/appState";
 import { translatePolygon } from "../utils/areaUtils";
-import { loadState, saveState } from "../services/appStorage";
+import { loadFullState, saveFiles, savePrefs } from "../services/appStorage";
 
 // --- Reducer (exported for direct testing) ---
 
 export function appReducer(state: AppState, action: AppAction): AppState {
 	switch (action.type) {
+		case "hydrate":
+			return action.state;
+
 		// -- Sidebar --
 		case "set_sidebar_width":
 			return handleSetSidebarWidth(state, action.widthPercent);
@@ -370,13 +373,24 @@ function handleNavigateFile(
 // --- Hook ---
 
 export function useAppReducer(): [AppState, React.Dispatch<AppAction>] {
-	const [state, dispatch] = useReducer(appReducer, null, () => {
-		return loadState() ?? createInitialState();
-	});
+	const [state, dispatch] = useReducer(appReducer, null, createInitialState);
+	const hydrated = useRef(false);
 
-	// Auto-save on state changes (debounced).
+	// Hydrate from IndexedDB + localStorage on mount.
 	useEffect(() => {
-		const timer = setTimeout(() => saveState(state), 500);
+		loadFullState().then((loaded) => {
+			dispatch({ type: "hydrate", state: loaded });
+			hydrated.current = true;
+		});
+	}, []);
+
+	// Auto-save on state changes (debounced). Skip until hydrated.
+	useEffect(() => {
+		if (!hydrated.current) return;
+		const timer = setTimeout(() => {
+			savePrefs(state);
+			saveFiles(state.general.files);
+		}, 500);
 		return () => clearTimeout(timer);
 	}, [state]);
 

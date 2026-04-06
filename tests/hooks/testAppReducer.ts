@@ -22,6 +22,18 @@ const makeFile = (id: string, name: string): ImageFile => ({
 	annotations: [],
 });
 
+// -- Hydrate --
+
+describe("hydrate", () => {
+	it("replaces the entire state", () => {
+		const state = createInitialState();
+		const hydrated = stateWith({ ui: { sidebarWidthPercent: 42 } });
+		const next = appReducer(state, { type: "hydrate", state: hydrated });
+		expect(next.ui.sidebarWidthPercent).toBe(42);
+		expect(next).toEqual(hydrated);
+	});
+});
+
 // -- Sidebar --
 
 describe("set_sidebar_width", () => {

@@ -1,9 +1,13 @@
+import "fake-indexeddb/auto";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { App } from "../src/app";
+import { _resetDb } from "../src/services/appStorage";
 
-beforeEach(() => {
+beforeEach(async () => {
 	localStorage.clear();
+	await _resetDb();
+	indexedDB.deleteDatabase("ichigo-annotate");
 });
 
 describe("App", () => {

@@ -70,6 +70,7 @@ export interface AppState {
 // --- Actions ---
 
 export type AppAction =
+	| { type: "hydrate"; state: AppState }
 	| { type: "set_sidebar_width"; widthPercent: number }
 	| { type: "toggle_sidebar_collapsed" }
 	| { type: "set_search_query"; query: string }
