@@ -41,7 +41,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 		case "undo_delete_file":
 			return handleUndoDeleteFile(state);
 		case "import_files":
-			return handleImportFiles(state, action.files, action.replace);
+			return handleImportFiles(state, action.files, action.importClasses ?? [], action.replace);
 
 		// -- Export --
 		case "set_export_format":
@@ -223,9 +223,31 @@ function handleUndoDeleteFile(state: AppState): AppState {
 function handleImportFiles(
 	state: AppState,
 	files: AppState["general"]["files"],
+	importClasses: AppState["general"]["classes"],
 	replace: boolean,
 ): AppState {
 	const newFiles = replace ? files : [...state.general.files, ...files];
+
+	// Merge imported classes with existing ones.
+	let classes: AppState["general"]["classes"];
+	if (replace && importClasses.length > 0) {
+		// Keep default + imported classes only.
+		const ids = new Set(importClasses.map((c) => c.id));
+		const base = state.general.classes.filter(
+			(c) => ids.has(c.id) || c.id === "default-class",
+		);
+		const newOnes = importClasses.filter(
+			(c) => !base.some((b) => b.id === c.id),
+		);
+		classes = [...base, ...newOnes];
+	} else {
+		const existingIds = new Set(state.general.classes.map((c) => c.id));
+		classes = [
+			...state.general.classes,
+			...importClasses.filter((c) => !existingIds.has(c.id)),
+		];
+	}
+
 	return {
 		...state,
 		ui: {
@@ -235,6 +257,7 @@ function handleImportFiles(
 		general: {
 			...state.general,
 			files: newFiles,
+			classes,
 			lastDeletedFile: null,
 		},
 	};

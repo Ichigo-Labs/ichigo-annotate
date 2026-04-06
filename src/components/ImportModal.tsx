@@ -7,6 +7,25 @@ interface ImportModalProps {
 	onCancel: () => void;
 }
 
+type DetectedFormat = "YOLO" | "COCO" | "VOC" | "JSON" | null;
+
+function detectFormat(files: File[]): DetectedFormat {
+	if (files.some((f) => f.name === "annotations.json")) return "COCO";
+	if (files.some((f) => f.name.endsWith(".xml"))) return "VOC";
+	const hasAnnotationTxt = files.some(
+		(f) =>
+			f.name.endsWith(".txt") &&
+			f.name !== "classes.txt" &&
+			!f.type.startsWith("image/"),
+	);
+	if (hasAnnotationTxt) return "YOLO";
+	const hasAnnotationJson = files.some(
+		(f) => f.name.endsWith(".json") && !f.type.startsWith("image/"),
+	);
+	if (hasAnnotationJson) return "JSON";
+	return null;
+}
+
 export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 	const [replace, setReplace] = useState(false);
 	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -14,8 +33,13 @@ export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 
 	if (!open) return null;
 
+	const imageCount = selectedFiles.filter((f) =>
+		f.type.startsWith("image/"),
+	).length;
+	const format = detectFormat(selectedFiles);
+
 	const handleDone = () => {
-		if (selectedFiles.length === 0) return;
+		if (imageCount === 0) return;
 		onImport(selectedFiles, replace);
 		setSelectedFiles([]);
 		setReplace(false);
@@ -38,7 +62,7 @@ export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 			}}
 		>
 			<div className={styles.card}>
-				<div className={styles.title}>Import Images</div>
+				<div className={styles.title}>Import Dataset</div>
 
 				<label className={`${styles.field} ${styles.checkboxRow}`}>
 					<input
@@ -56,19 +80,23 @@ export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 						className={styles.fileInput}
 						type="file"
 						multiple
-						accept="image/*"
 						/* @ts-expect-error webkitdirectory is not in React's type defs */
 						webkitdirectory=""
 						onChange={(e) =>
-							setSelectedFiles(
-								Array.from(e.target.files ?? []).filter((f) =>
-									f.type.startsWith("image/"),
-								),
-							)
+							setSelectedFiles(Array.from(e.target.files ?? []))
 						}
 						data-testid="file-input"
 					/>
 				</div>
+
+				{selectedFiles.length > 0 && (
+					<div className={styles.summary} data-testid="import-summary">
+						{imageCount} image{imageCount !== 1 ? "s" : ""} found
+						{format
+							? ` \u00B7 ${format} annotations detected`
+							: " \u00B7 no annotations detected"}
+					</div>
+				)}
 
 				<div className={styles.buttons}>
 					<button
@@ -80,7 +108,7 @@ export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 					</button>
 					<button
 						className={`${styles.btn} ${styles.btnPrimary}`}
-						disabled={selectedFiles.length === 0}
+						disabled={imageCount === 0}
 						onClick={handleDone}
 						data-testid="import-done"
 					>

@@ -100,6 +100,54 @@ describe("import_files", () => {
 		});
 		expect(next.ui.selectedFileId).toBe("x");
 	});
+
+	it("merges new classes on append", () => {
+		const state = createInitialState();
+		const newClass = { id: "new-cls", name: "tiger", color: "#00ff00" };
+		const next = appReducer(state, {
+			type: "import_files",
+			files: [makeFile("x", "x.png")],
+			importClasses: [newClass],
+			replace: false,
+		});
+		expect(next.general.classes).toHaveLength(2);
+		expect(next.general.classes[1]!.name).toBe("tiger");
+	});
+
+	it("does not duplicate existing classes on append", () => {
+		const state = createInitialState();
+		const next = appReducer(state, {
+			type: "import_files",
+			files: [makeFile("x", "x.png")],
+			importClasses: [{ id: "default-class", name: "default-class", color: "#d4856a" }],
+			replace: false,
+		});
+		expect(next.general.classes).toHaveLength(1);
+	});
+
+	it("keeps default-class on replace with importClasses", () => {
+		const state = createInitialState();
+		const newClass = { id: "new-cls", name: "tiger", color: "#00ff00" };
+		const next = appReducer(state, {
+			type: "import_files",
+			files: [makeFile("x", "x.png")],
+			importClasses: [newClass],
+			replace: true,
+		});
+		const names = next.general.classes.map((c) => c.name);
+		expect(names).toContain("default-class");
+		expect(names).toContain("tiger");
+	});
+
+	it("works without importClasses (backward compatible)", () => {
+		const state = createInitialState();
+		const next = appReducer(state, {
+			type: "import_files",
+			files: [makeFile("x", "x.png")],
+			replace: false,
+		});
+		expect(next.general.classes).toHaveLength(1);
+	});
 });
 
 describe("delete_file", () => {

@@ -68,6 +68,12 @@
 	cursor: default;
 }
 
+.summary {
+	font-size: 13px;
+	color: var(--color-text-muted);
+	margin-bottom: 8px;
+}
+
 .btnSecondary {
 	background: var(--color-surface);
 	color: var(--color-text);

@@ -1,6 +1,20 @@
 import { useRef, useState } from "react";
 import { useAppReducer } from "./hooks/useAppReducer";
 import { createImageFile } from "./utils/imageUtils";
+import {
+	collectJsonClassNames,
+	collectVocClassNames,
+	detectYoloMaxIndex,
+	isLabelMeFormat,
+	parseCocoAnnotations,
+	parseJsonAnnotation,
+	parseLabelMeAnnotation,
+	parseVocAnnotation,
+	parseYoloAnnotation,
+	parseYoloClasses,
+	resolveClasses,
+} from "./utils/importUtils";
+import type { CocoData } from "./utils/importUtils";
 import { exportAsZip } from "./services/exportService";
 import { Sidebar } from "./components/Sidebar";
 import { FileList } from "./components/FileList";
@@ -35,30 +49,158 @@ export function App() {
 	const handleImport = async (rawFiles: File[], replace: boolean) => {
 		dispatch({ type: "close_import_modal" });
 
+		// Separate files by type.
+		const imageFiles: File[] = [];
+		const txtFiles = new Map<string, File>();
+		const jsonFiles = new Map<string, File>();
+		const xmlFiles = new Map<string, File>();
+		let classesFile: File | null = null;
+		let cocoFile: File | null = null;
+
+		for (const file of rawFiles) {
+			if (file.type.startsWith("image/")) {
+				imageFiles.push(file);
+			} else if (file.name === "classes.txt") {
+				classesFile = file;
+			} else if (file.name === "annotations.json") {
+				cocoFile = file;
+			} else if (file.name.endsWith(".txt")) {
+				txtFiles.set(file.name.replace(/\.txt$/, ""), file);
+			} else if (file.name.endsWith(".xml")) {
+				xmlFiles.set(file.name.replace(/\.xml$/, ""), file);
+			} else if (file.name.endsWith(".json")) {
+				jsonFiles.set(file.name.replace(/\.json$/, ""), file);
+			}
+		}
+
+		// Parse annotations if present.
+		let annotationMap = new Map<string, import("./types/appState").Annotation[]>();
+		let newClasses: import("./types/appState").AnnotationClass[] = [];
+
+		if (cocoFile) {
+			// COCO format
+			const cocoData: CocoData = JSON.parse(await cocoFile.text());
+			const entries = cocoData.categories.map((c) => ({
+				key: c.id,
+				name: c.name,
+			}));
+			const resolved = resolveClasses(entries, appState.general.classes);
+			newClasses = resolved.newClasses;
+			annotationMap = parseCocoAnnotations(cocoData, resolved.classMap);
+		} else if (xmlFiles.size > 0) {
+			// Pascal VOC format
+			const xmlContents = new Map<string, string>();
+			for (const [base, file] of xmlFiles) {
+				xmlContents.set(base, await file.text());
+			}
+
+			const classNames = collectVocClassNames(xmlContents.values());
+			const entries = classNames.map((name, i) => ({ key: i, name }));
+			const resolved = resolveClasses(entries, appState.general.classes);
+			newClasses = resolved.newClasses;
+
+			const classByName = new Map<string, string>();
+			for (const { key, name } of entries) {
+				classByName.set(name, resolved.classMap.get(key) ?? "");
+			}
+
+			for (const [base, text] of xmlContents) {
+				const anns = parseVocAnnotation(text, classByName);
+				if (anns.length > 0) annotationMap.set(base, anns);
+			}
+		} else if (txtFiles.size > 0) {
+			// YOLO format
+			const txtContents = new Map<string, string>();
+			for (const [base, file] of txtFiles) {
+				txtContents.set(base, await file.text());
+			}
+
+			let classNames: string[];
+			if (classesFile) {
+				classNames = parseYoloClasses(await classesFile.text());
+			} else {
+				const maxIdx = detectYoloMaxIndex(txtContents.values());
+				classNames = Array.from(
+					{ length: maxIdx + 1 },
+					(_, i) => `class-${i}`,
+				);
+			}
+
+			const entries = classNames.map((name, i) => ({ key: i, name }));
+			const resolved = resolveClasses(entries, appState.general.classes);
+			newClasses = resolved.newClasses;
+
+			for (const [base, text] of txtContents) {
+				const anns = parseYoloAnnotation(text, resolved.classMap);
+				if (anns.length > 0) annotationMap.set(base, anns);
+			}
+		} else if (jsonFiles.size > 0) {
+			// Per-image JSON or LabelMe format (auto-detected per file)
+			const jsonContents = new Map<string, string>();
+			for (const [base, file] of jsonFiles) {
+				jsonContents.set(base, await file.text());
+			}
+
+			const classNames = collectJsonClassNames(jsonContents.values());
+			const entries = classNames.map((name, i) => ({ key: i, name }));
+			const resolved = resolveClasses(entries, appState.general.classes);
+			newClasses = resolved.newClasses;
+
+			const classByName = new Map<string, string>();
+			for (const { key, name } of entries) {
+				classByName.set(name, resolved.classMap.get(key) ?? "");
+			}
+
+			for (const [base, text] of jsonContents) {
+				try {
+					const parsed = JSON.parse(text);
+					const anns = isLabelMeFormat(parsed)
+						? parseLabelMeAnnotation(text, classByName)
+						: parseJsonAnnotation(text, classByName);
+					if (anns.length > 0) annotationMap.set(base, anns);
+				} catch {
+					// skip malformed files
+				}
+			}
+		}
+
+		// Import images with matched annotations.
 		const toastId = `import-${Date.now()}`;
 		dispatch({
 			type: "add_toast",
 			toast: {
 				id: toastId,
-				message: `Importing 0/${rawFiles.length} images...`,
-				progress: { current: 0, total: rawFiles.length },
+				message: `Importing 0/${imageFiles.length} images...`,
+				progress: { current: 0, total: imageFiles.length },
 			},
 		});
 
-		// Process files in sequence to avoid freezing.
 		const imported = [];
-		for (let i = 0; i < rawFiles.length; i++) {
-			const imageFile = await createImageFile(rawFiles[i]!);
+		for (let i = 0; i < imageFiles.length; i++) {
+			const imgFile = imageFiles[i]!;
+			const imageFile = await createImageFile(imgFile);
+
+			const baseName = imgFile.name.replace(/\.[^.]+$/, "");
+			const matchedAnnotations = annotationMap.get(baseName);
+			if (matchedAnnotations) {
+				imageFile.annotations = matchedAnnotations;
+			}
+
 			imported.push(imageFile);
 			dispatch({
 				type: "update_toast",
 				id: toastId,
-				message: `Importing ${i + 1}/${rawFiles.length} images...`,
-				progress: { current: i + 1, total: rawFiles.length },
+				message: `Importing ${i + 1}/${imageFiles.length} images...`,
+				progress: { current: i + 1, total: imageFiles.length },
 			});
 		}
 
-		dispatch({ type: "import_files", files: imported, replace });
+		dispatch({
+			type: "import_files",
+			files: imported,
+			importClasses: newClasses,
+			replace,
+		});
 		dispatch({ type: "remove_toast", id: toastId });
 	};
 

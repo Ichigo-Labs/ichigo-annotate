@@ -3,7 +3,13 @@ import type {
 	ExportFormat,
 	ImageFile,
 } from "../types/appState";
-import { toCocoFormat, toYoloFormat } from "../utils/exportUtils";
+import {
+	toCocoFormat,
+	toJsonFormat,
+	toLabelMeFormat,
+	toVocFormat,
+	toYoloFormat,
+} from "../utils/exportUtils";
 import JSZip from "jszip";
 
 export async function exportAsZip(
@@ -21,10 +27,34 @@ export async function exportAsZip(
 			const yolo = toYoloFormat(file.annotations, classes);
 			zip.file(`${baseName}.txt`, yolo);
 		}
-	} else {
+	} else if (format === "coco") {
 		// Single annotations.json in COCO format.
 		const coco = toCocoFormat(files, classes);
 		zip.file("annotations.json", JSON.stringify(coco, null, 2));
+	} else if (format === "voc") {
+		// Per-image Pascal VOC XML files.
+		for (const file of files) {
+			const baseName = file.name.replace(/\.[^.]+$/, "");
+			zip.file(
+				`${baseName}.xml`,
+				toVocFormat(file.name, file.annotations, classes),
+			);
+		}
+	} else if (format === "labelme") {
+		// Per-image LabelMe JSON files.
+		for (const file of files) {
+			const baseName = file.name.replace(/\.[^.]+$/, "");
+			zip.file(
+				`${baseName}.json`,
+				toLabelMeFormat(file.name, file.annotations, classes),
+			);
+		}
+	} else {
+		// Per-image JSON files.
+		for (const file of files) {
+			const baseName = file.name.replace(/\.[^.]+$/, "");
+			zip.file(`${baseName}.json`, toJsonFormat(file.annotations, classes));
+		}
 	}
 
 	// Generate and trigger download.

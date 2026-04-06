@@ -14,7 +14,7 @@ describe("ImportModal", () => {
 		render(
 			<ImportModal open={true} onImport={vi.fn()} onCancel={vi.fn()} />,
 		);
-		expect(screen.getByText("Import Images")).toBeInTheDocument();
+		expect(screen.getByText("Import Dataset")).toBeInTheDocument();
 		expect(screen.getByTestId("replace-checkbox")).toBeInTheDocument();
 		expect(screen.getByTestId("file-input")).toBeInTheDocument();
 	});

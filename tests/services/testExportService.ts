@@ -76,4 +76,70 @@ describe("exportAsZip", () => {
 
 		vi.restoreAllMocks();
 	});
+
+	it("creates and triggers download for JSON format", async () => {
+		const clickSpy = vi.fn();
+		vi.spyOn(document, "createElement").mockReturnValue({
+			set href(_: string) {},
+			set download(_: string) {},
+			click: clickSpy,
+		} as unknown as HTMLAnchorElement);
+		vi.spyOn(document.body, "appendChild").mockImplementation(
+			(n) => n as HTMLAnchorElement,
+		);
+		vi.spyOn(document.body, "removeChild").mockImplementation(
+			(n) => n as HTMLAnchorElement,
+		);
+		vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+		vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
+
+		await exportAsZip(files, classes, "json");
+		expect(clickSpy).toHaveBeenCalled();
+
+		vi.restoreAllMocks();
+	});
+
+	it("creates and triggers download for VOC format", async () => {
+		const clickSpy = vi.fn();
+		vi.spyOn(document, "createElement").mockReturnValue({
+			set href(_: string) {},
+			set download(_: string) {},
+			click: clickSpy,
+		} as unknown as HTMLAnchorElement);
+		vi.spyOn(document.body, "appendChild").mockImplementation(
+			(n) => n as HTMLAnchorElement,
+		);
+		vi.spyOn(document.body, "removeChild").mockImplementation(
+			(n) => n as HTMLAnchorElement,
+		);
+		vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+		vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
+
+		await exportAsZip(files, classes, "voc");
+		expect(clickSpy).toHaveBeenCalled();
+
+		vi.restoreAllMocks();
+	});
+
+	it("creates and triggers download for LabelMe format", async () => {
+		const clickSpy = vi.fn();
+		vi.spyOn(document, "createElement").mockReturnValue({
+			set href(_: string) {},
+			set download(_: string) {},
+			click: clickSpy,
+		} as unknown as HTMLAnchorElement);
+		vi.spyOn(document.body, "appendChild").mockImplementation(
+			(n) => n as HTMLAnchorElement,
+		);
+		vi.spyOn(document.body, "removeChild").mockImplementation(
+			(n) => n as HTMLAnchorElement,
+		);
+		vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+		vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
+
+		await exportAsZip(files, classes, "labelme");
+		expect(clickSpy).toHaveBeenCalled();
+
+		vi.restoreAllMocks();
+	});
 });

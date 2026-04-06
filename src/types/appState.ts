@@ -26,7 +26,7 @@ export interface ImageFile {
 	annotations: Annotation[];
 }
 
-export type ExportFormat = "yolo" | "coco";
+export type ExportFormat = "yolo" | "coco" | "json" | "voc" | "labelme";
 
 // --- Toast ---
 
@@ -81,7 +81,7 @@ export type AppAction =
 	| { type: "select_file"; fileId: string }
 	| { type: "delete_file"; fileId: string }
 	| { type: "undo_delete_file" }
-	| { type: "import_files"; files: ImageFile[]; replace: boolean }
+	| { type: "import_files"; files: ImageFile[]; importClasses?: AnnotationClass[]; replace: boolean }
 	| { type: "set_export_format"; format: ExportFormat }
 	| { type: "set_active_class"; classId: string }
 	| { type: "add_class"; name: string; color: string }

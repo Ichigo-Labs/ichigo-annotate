@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { toCocoFormat, toYoloFormat } from "../../src/utils/exportUtils";
+import {
+	toCocoFormat,
+	toJsonFormat,
+	toLabelMeFormat,
+	toVocFormat,
+	toYoloFormat,
+} from "../../src/utils/exportUtils";
 import type {
 	Annotation,
 	AnnotationClass,
@@ -67,5 +73,62 @@ describe("toCocoFormat", () => {
 		expect(result.images).toHaveLength(2);
 		expect(result.annotations).toHaveLength(1);
 		expect(result.categories).toHaveLength(2);
+	});
+});
+
+describe("toJsonFormat", () => {
+	it("produces a JSON array of annotations", () => {
+		const result = JSON.parse(toJsonFormat([annotation], classes));
+		expect(result).toHaveLength(1);
+		expect(result[0].class).toBe("cat");
+		expect(result[0].vertices).toHaveLength(3);
+		expect(result[0].vertices[0]).toEqual([0.1, 0.2]);
+	});
+
+	it("returns empty array for no annotations", () => {
+		expect(JSON.parse(toJsonFormat([], classes))).toEqual([]);
+	});
+});
+
+describe("toVocFormat", () => {
+	it("produces valid XML with polygon and bndbox", () => {
+		const xml = toVocFormat("img.png", [annotation], classes);
+		expect(xml).toContain("<filename>img.png</filename>");
+		expect(xml).toContain("<name>cat</name>");
+		expect(xml).toContain("<polygon>");
+		expect(xml).toContain("<bndbox>");
+		expect(xml).toContain("<xmin>0.100000</xmin>");
+		// 3 polygon points
+		expect((xml.match(/<pt>/g) ?? []).length).toBe(3);
+	});
+
+	it("escapes special characters in filename", () => {
+		const xml = toVocFormat("img<1>.png", [annotation], classes);
+		expect(xml).toContain("img&lt;1&gt;.png");
+	});
+
+	it("returns annotation wrapper with no objects when empty", () => {
+		const xml = toVocFormat("img.png", [], classes);
+		expect(xml).toContain("<annotation>");
+		expect(xml).not.toContain("<object>");
+	});
+});
+
+describe("toLabelMeFormat", () => {
+	it("produces valid LabelMe JSON", () => {
+		const result = JSON.parse(toLabelMeFormat("img.png", [annotation], classes));
+		expect(result.version).toBe("5.0.0");
+		expect(result.imagePath).toBe("img.png");
+		expect(result.shapes).toHaveLength(1);
+		expect(result.shapes[0].label).toBe("cat");
+		expect(result.shapes[0].shape_type).toBe("polygon");
+		expect(result.shapes[0].points).toHaveLength(3);
+		expect(result.shapes[0].points[0]).toEqual([0.1, 0.2]);
+	});
+
+	it("sets imageWidth and imageHeight to 1 (normalized)", () => {
+		const result = JSON.parse(toLabelMeFormat("img.png", [], classes));
+		expect(result.imageWidth).toBe(1);
+		expect(result.imageHeight).toBe(1);
 	});
 });

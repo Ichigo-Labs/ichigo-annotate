@@ -50,6 +50,36 @@ export function ExportModal({
 						/>
 						COCO
 					</label>
+					<label className={styles.formatLabel}>
+						<input
+							type="radio"
+							name="format"
+							value="json"
+							checked={exportFormat === "json"}
+							onChange={() => onFormatChange("json")}
+						/>
+						JSON
+					</label>
+					<label className={styles.formatLabel}>
+						<input
+							type="radio"
+							name="format"
+							value="voc"
+							checked={exportFormat === "voc"}
+							onChange={() => onFormatChange("voc")}
+						/>
+						Pascal VOC
+					</label>
+					<label className={styles.formatLabel}>
+						<input
+							type="radio"
+							name="format"
+							value="labelme"
+							checked={exportFormat === "labelme"}
+							onChange={() => onFormatChange("labelme")}
+						/>
+						LabelMe
+					</label>
 				</div>
 
 				<div className={styles.buttons}>

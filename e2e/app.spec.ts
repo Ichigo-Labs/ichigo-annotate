@@ -39,12 +39,9 @@ test.describe("Import and file selection", () => {
 		await page.getByTestId("import-btn").click();
 		await expect(page.getByTestId("import-modal")).toBeVisible();
 
-		// Upload test images.
+		// Upload a directory containing test images.
 		const fileInput = page.getByTestId("file-input");
-		await fileInput.setInputFiles([
-			path.join(fixtures, "test-image-1.png"),
-			path.join(fixtures, "test-image-2.png"),
-		]);
+		await fileInput.setInputFiles(path.join(fixtures, "two-images"));
 
 		// Click done.
 		await page.getByTestId("import-done").click();
@@ -69,7 +66,7 @@ test.describe("File management", () => {
 		await page.getByTestId("import-btn").click();
 		await page
 			.getByTestId("file-input")
-			.setInputFiles([path.join(fixtures, "test-image-1.png")]);
+			.setInputFiles(path.join(fixtures, "single-image"));
 		await page.getByTestId("import-done").click();
 		await expect(page.getByText("test-image-1.png")).toBeVisible();
 
@@ -96,10 +93,9 @@ test.describe("Search", () => {
 
 		// Import two files.
 		await page.getByTestId("import-btn").click();
-		await page.getByTestId("file-input").setInputFiles([
-			path.join(fixtures, "test-image-1.png"),
-			path.join(fixtures, "test-image-2.png"),
-		]);
+		await page
+			.getByTestId("file-input")
+			.setInputFiles(path.join(fixtures, "two-images"));
 		await page.getByTestId("import-done").click();
 
 		// Type search query.
@@ -151,10 +147,9 @@ test.describe("File navigation", () => {
 
 		// Import two files.
 		await page.getByTestId("import-btn").click();
-		await page.getByTestId("file-input").setInputFiles([
-			path.join(fixtures, "test-image-1.png"),
-			path.join(fixtures, "test-image-2.png"),
-		]);
+		await page
+			.getByTestId("file-input")
+			.setInputFiles(path.join(fixtures, "two-images"));
 		await page.getByTestId("import-done").click();
 
 		// First file should be selected (check for selected style).
@@ -194,6 +189,55 @@ test.describe("Export modal", () => {
 		// Cancel.
 		await page.getByTestId("export-cancel").click();
 		await expect(page.getByTestId("export-modal")).not.toBeVisible();
+	});
+
+	test("shows all format options", async ({ page }) => {
+		await page.goto("/");
+		await page.getByTestId("export-btn").click();
+
+		await expect(page.locator('input[value="yolo"]')).toBeVisible();
+		await expect(page.locator('input[value="coco"]')).toBeVisible();
+		await expect(page.locator('input[value="json"]')).toBeVisible();
+		await expect(page.locator('input[value="voc"]')).toBeVisible();
+		await expect(page.locator('input[value="labelme"]')).toBeVisible();
+
+		await page.getByTestId("export-cancel").click();
+	});
+});
+
+test.describe("Import with annotations", () => {
+	test("imports YOLO annotations alongside images", async ({ page }) => {
+		await page.goto("/");
+
+		// Open import modal.
+		await page.getByTestId("import-btn").click();
+		await expect(page.getByTestId("import-modal")).toBeVisible();
+
+		// Upload directory with image + YOLO annotation files.
+		await page
+			.getByTestId("file-input")
+			.setInputFiles(path.join(fixtures, "yolo-dataset"));
+
+		// Summary should show annotation detection.
+		await expect(page.getByTestId("import-summary")).toContainText(
+			"1 image found",
+		);
+		await expect(page.getByTestId("import-summary")).toContainText(
+			"YOLO annotations detected",
+		);
+
+		// Import.
+		await page.getByTestId("import-done").click();
+		await expect(page.getByTestId("import-modal")).not.toBeVisible();
+
+		// Image should appear in file list.
+		await expect(page.getByText("test-image-1.png")).toBeVisible();
+
+		// The imported class should appear in the palette.
+		await expect(page.getByText("test-class")).toBeVisible();
+
+		// An annotation polygon should be rendered on the canvas.
+		await expect(page.locator("svg polygon")).toBeVisible();
 	});
 });
 

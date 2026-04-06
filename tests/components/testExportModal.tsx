@@ -16,7 +16,7 @@ describe("ExportModal", () => {
 		expect(container.innerHTML).toBe("");
 	});
 
-	it("renders format options when open", () => {
+	it("renders all format options when open", () => {
 		render(
 			<ExportModal
 				open={true}
@@ -28,6 +28,9 @@ describe("ExportModal", () => {
 		);
 		expect(screen.getByText("YOLO")).toBeInTheDocument();
 		expect(screen.getByText("COCO")).toBeInTheDocument();
+		expect(screen.getByText("JSON")).toBeInTheDocument();
+		expect(screen.getByText("Pascal VOC")).toBeInTheDocument();
+		expect(screen.getByText("LabelMe")).toBeInTheDocument();
 	});
 
 	it("changing format calls onFormatChange", () => {
