@@ -51,7 +51,7 @@ export function AnnotationPolygon({
 	const pointerIdRef = useRef<number | null>(null);
 
 	const handlePolyDown = (e: React.PointerEvent) => {
-		if (isDrawing) return;
+		if (isDrawing || !isActiveClass) return;
 
 		e.stopPropagation(); // Prevent lasso start on polygon click.
 
@@ -61,20 +61,17 @@ export function AnnotationPolygon({
 		pointerIdRef.current = e.pointerId;
 		clicked.current = true;
 
-		// Only allow drag for active class.
-		if (isActiveClass) {
-			holdTimer.current = setTimeout(() => {
-				clicked.current = false;
-				isDragging.current = true;
-				onMoveStart(annotation.id);
-				const el = svgRef.current?.querySelector(
-					`[data-annotation-id="${annotation.id}"]`,
-				);
-				if (el && pointerIdRef.current !== null) {
-					el.setPointerCapture(pointerIdRef.current);
-				}
-			}, HOLD_DELAY);
-		}
+		holdTimer.current = setTimeout(() => {
+			clicked.current = false;
+			isDragging.current = true;
+			onMoveStart(annotation.id);
+			const el = svgRef.current?.querySelector(
+				`[data-annotation-id="${annotation.id}"]`,
+			);
+			if (el && pointerIdRef.current !== null) {
+				el.setPointerCapture(pointerIdRef.current);
+			}
+		}, HOLD_DELAY);
 	};
 
 	const handlePolyMove = (e: React.PointerEvent) => {
@@ -99,7 +96,7 @@ export function AnnotationPolygon({
 			onMoveEnd(annotation.id, e.clientX, e.clientY);
 		} else if (clicked.current) {
 			e.stopPropagation();
-			onSelect(annotation.id);
+			if (isActiveClass) onSelect(annotation.id);
 		}
 		clicked.current = false;
 	};
@@ -113,7 +110,7 @@ export function AnnotationPolygon({
 
 	return (
 		<g
-			style={{ pointerEvents: isDrawing ? "none" : "auto" }}
+			style={{ pointerEvents: isDrawing || !isActiveClass ? "none" : "auto" }}
 			data-testid="annotation-polygon"
 		>
 			{/* Glow filter for selection aura */}
@@ -145,7 +142,7 @@ export function AnnotationPolygon({
 				onPointerDown={handlePolyDown}
 				onPointerMove={handlePolyMove}
 				onPointerUp={handlePolyUp}
-				style={{ cursor: isDrawing ? "default" : "pointer" }}
+				style={{ cursor: isDrawing || !isActiveClass ? "default" : "pointer" }}
 			/>
 		</g>
 	);
