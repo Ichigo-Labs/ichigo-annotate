@@ -20,6 +20,10 @@ const defaultProps = {
 	onDeleteClass: vi.fn(),
 	onAddClass: vi.fn(),
 	onModeChange: vi.fn(),
+	onUndo: vi.fn(),
+	onRedo: vi.fn(),
+	canUndo: false,
+	canRedo: false,
 	onNavigate: vi.fn(),
 	onDragEnd: vi.fn(),
 };

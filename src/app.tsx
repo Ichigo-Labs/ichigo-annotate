@@ -304,6 +304,7 @@ export function App() {
 					onBucketFill={handleBucketFill}
 					onAnnotationMoveStart={(annotationId) => {
 						setIsDraggingAnnotation(true);
+						dispatch({ type: "push_undo_snapshot" });
 						dispatch({ type: "select_annotation", annotationId });
 					}}
 					onAnnotationMove={(annotationId, delta) => {
@@ -325,14 +326,20 @@ export function App() {
 							});
 						}
 					}}
-					onSelectAnnotation={(annotationId) =>
-						dispatch({ type: "select_annotation", annotationId })
-					}
+					onSelectAnnotation={(annotationId) => {
+						if (appState.ui.canvasMode === "delete" && annotationId && selectedFile) {
+							dispatch({ type: "delete_annotation", fileId: selectedFile.id, annotationId });
+						} else {
+							dispatch({ type: "select_annotation", annotationId });
+						}
+					}}
 				/>
 				<CanvasPalette
 					classes={appState.general.classes}
 					activeClassId={appState.ui.activeClassId}
 					canvasMode={appState.ui.canvasMode}
+					canUndo={appState.ui.annotationUndoStack.length > 0}
+					canRedo={appState.ui.annotationRedoStack.length > 0}
 					position={appState.ui.palettePosition}
 					isDraggingAnnotation={isDraggingAnnotation}
 					trashRef={trashRef}
@@ -346,6 +353,8 @@ export function App() {
 					onModeChange={(mode) =>
 						dispatch({ type: "set_canvas_mode", mode })
 					}
+					onUndo={() => dispatch({ type: "undo_annotation" })}
+					onRedo={() => dispatch({ type: "redo_annotation" })}
 					onNavigate={(dir) =>
 						dispatch({ type: "navigate_file", direction: dir })
 					}

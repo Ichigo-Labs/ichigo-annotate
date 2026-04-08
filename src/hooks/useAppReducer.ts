@@ -34,7 +34,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 		case "select_file":
 			return {
 				...state,
-				ui: { ...state.ui, selectedFileId: action.fileId, selectedAnnotationId: null },
+				ui: { ...state.ui, selectedFileId: action.fileId, selectedAnnotationId: null, annotationUndoStack: [], annotationRedoStack: [] },
 			};
 		case "delete_file":
 			return handleDeleteFile(state, action.fileId);
@@ -94,7 +94,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 		case "add_lasso_point":
 			return handleAddLassoPoint(state, action.point);
 		case "complete_lasso":
-			return handleCompleteLasso(state);
+			return handleCompleteLasso(pushUndoSnapshot(state));
 		case "cancel_lasso":
 			return {
 				...state,
@@ -109,13 +109,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 			};
 		case "change_annotation_class":
 			return handleChangeAnnotationClass(
-				state,
+				pushUndoSnapshot(state),
 				action.fileId,
 				action.annotationId,
 				action.classId,
 			);
 		case "delete_annotation":
-			return handleDeleteAnnotation(state, action.fileId, action.annotationId);
+			return handleDeleteAnnotation(pushUndoSnapshot(state), action.fileId, action.annotationId);
 		case "move_annotation":
 			return handleMoveAnnotation(
 				state,
@@ -178,7 +178,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 				ui: { ...state.ui, canvasMode: action.mode },
 			};
 		case "add_annotation":
-			return handleAddAnnotation(state, action.vertices);
+			return handleAddAnnotation(pushUndoSnapshot(state), action.vertices);
+		case "undo_annotation":
+			return handleUndoAnnotation(state);
+		case "redo_annotation":
+			return handleRedoAnnotation(state);
+		case "push_undo_snapshot":
+			return pushUndoSnapshot(state);
 	}
 }
 
@@ -463,6 +469,82 @@ function handleMoveAnnotation(
 									: a,
 							),
 						}
+					: f,
+			),
+		},
+	};
+}
+
+const MAX_UNDO_STACK = 50;
+
+function pushUndoSnapshot(state: AppState): AppState {
+	const file = state.general.files.find(
+		(f) => f.id === state.ui.selectedFileId,
+	);
+	if (!file) return state;
+	const stack = [...state.ui.annotationUndoStack, file.annotations];
+	return {
+		...state,
+		ui: {
+			...state.ui,
+			annotationUndoStack: stack.length > MAX_UNDO_STACK ? stack.slice(-MAX_UNDO_STACK) : stack,
+			annotationRedoStack: [],
+		},
+	};
+}
+
+function handleUndoAnnotation(state: AppState): AppState {
+	const { annotationUndoStack } = state.ui;
+	if (annotationUndoStack.length === 0 || !state.ui.selectedFileId) return state;
+
+	const file = state.general.files.find(
+		(f) => f.id === state.ui.selectedFileId,
+	);
+	if (!file) return state;
+
+	const prev = annotationUndoStack[annotationUndoStack.length - 1]!;
+	return {
+		...state,
+		ui: {
+			...state.ui,
+			annotationUndoStack: annotationUndoStack.slice(0, -1),
+			annotationRedoStack: [...state.ui.annotationRedoStack, file.annotations],
+			selectedAnnotationId: null,
+		},
+		general: {
+			...state.general,
+			files: state.general.files.map((f) =>
+				f.id === state.ui.selectedFileId
+					? { ...f, annotations: prev }
+					: f,
+			),
+		},
+	};
+}
+
+function handleRedoAnnotation(state: AppState): AppState {
+	const { annotationRedoStack } = state.ui;
+	if (annotationRedoStack.length === 0 || !state.ui.selectedFileId) return state;
+
+	const file = state.general.files.find(
+		(f) => f.id === state.ui.selectedFileId,
+	);
+	if (!file) return state;
+
+	const next = annotationRedoStack[annotationRedoStack.length - 1]!;
+	return {
+		...state,
+		ui: {
+			...state.ui,
+			annotationUndoStack: [...state.ui.annotationUndoStack, file.annotations],
+			annotationRedoStack: annotationRedoStack.slice(0, -1),
+			selectedAnnotationId: null,
+		},
+		general: {
+			...state.general,
+			files: state.general.files.map((f) =>
+				f.id === state.ui.selectedFileId
+					? { ...f, annotations: next }
 					: f,
 			),
 		},

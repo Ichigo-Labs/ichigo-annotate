@@ -16,7 +16,7 @@ const annotation = {
 const noop = vi.fn();
 
 // Wrapper to provide an SVG container and ref.
-function Wrapper(props: { isDrawing?: boolean; isSelected?: boolean; isActiveClass?: boolean }) {
+function Wrapper(props: { isDrawing?: boolean; isSelected?: boolean; isActiveClass?: boolean; isDeleteMode?: boolean }) {
 	const svgRef = useRef<SVGSVGElement>(null);
 	return (
 		<svg ref={svgRef} data-testid="test-svg">
@@ -26,6 +26,7 @@ function Wrapper(props: { isDrawing?: boolean; isSelected?: boolean; isActiveCla
 				isDrawing={props.isDrawing ?? false}
 				isActiveClass={props.isActiveClass ?? true}
 				isSelected={props.isSelected ?? false}
+				isDeleteMode={props.isDeleteMode ?? false}
 				onMoveStart={noop}
 				onMove={noop}
 				onMoveEnd={noop}

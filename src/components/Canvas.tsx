@@ -51,6 +51,7 @@ export function Canvas({
 	const svgRef = useRef<SVGSVGElement>(null);
 	const elevatedSvgRef = useRef<SVGSVGElement>(null);
 	const isDrawing = activeLassoPoints !== null;
+	const isDeleteMode = canvasMode === "delete";
 
 	const handleMoveStart = (annotationId: string) => {
 		onLassoCancel();
@@ -172,6 +173,7 @@ export function Canvas({
 							classColor={classColor(ann.classId)}
 							isDrawing={isDrawing}
 							isActiveClass={ann.classId === activeClassId}
+							isDeleteMode={isDeleteMode}
 							isSelected={false}
 							onMoveStart={handleMoveStart}
 							onMove={onAnnotationMove}
@@ -210,7 +212,8 @@ export function Canvas({
 									classColor={classColor(ann.classId)}
 									isDrawing={isDrawing}
 									isActiveClass={ann.classId === activeClassId}
-									isSelected={true}
+									isDeleteMode={isDeleteMode}
+								isSelected={true}
 									onMoveStart={handleMoveStart}
 									onMove={onAnnotationMove}
 									onMoveEnd={handleMoveEnd}

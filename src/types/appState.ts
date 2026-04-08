@@ -27,7 +27,7 @@ export interface ImageFile {
 }
 
 export type ExportFormat = "yolo" | "coco" | "json" | "voc" | "labelme";
-export type CanvasMode = "lasso" | "bucket";
+export type CanvasMode = "lasso" | "bucket" | "delete";
 
 // --- Toast ---
 
@@ -51,6 +51,8 @@ export interface UIState {
 	exportModalOpen: boolean;
 	stretchImage: boolean;
 	canvasMode: CanvasMode;
+	annotationUndoStack: Annotation[][];
+	annotationRedoStack: Annotation[][];
 	draggingAnnotationId: string | null;
 	selectedAnnotationId: string | null;
 	toasts: Toast[];
@@ -121,7 +123,10 @@ export type AppAction =
 	  }
 	| { type: "remove_toast"; id: string }
 	| { type: "set_canvas_mode"; mode: CanvasMode }
-	| { type: "add_annotation"; vertices: Point[] };
+	| { type: "add_annotation"; vertices: Point[] }
+	| { type: "undo_annotation" }
+	| { type: "redo_annotation" }
+	| { type: "push_undo_snapshot" };
 
 // --- Constants ---
 
@@ -149,6 +154,8 @@ export function createInitialState(): AppState {
 			exportModalOpen: false,
 			stretchImage: true,
 			canvasMode: "lasso" as const,
+			annotationUndoStack: [],
+			annotationRedoStack: [],
 			draggingAnnotationId: null,
 			selectedAnnotationId: null,
 			toasts: [],

@@ -7,6 +7,8 @@ interface CanvasPaletteProps {
 	classes: AnnotationClass[];
 	activeClassId: string;
 	canvasMode: CanvasMode;
+	canUndo: boolean;
+	canRedo: boolean;
 	position: { x: number; y: number };
 	isDraggingAnnotation: boolean;
 	trashRef: React.RefObject<HTMLDivElement | null>;
@@ -14,6 +16,8 @@ interface CanvasPaletteProps {
 	onDeleteClass: (classId: string) => void;
 	onAddClass: (name: string, color: string) => void;
 	onModeChange: (mode: CanvasMode) => void;
+	onUndo: () => void;
+	onRedo: () => void;
 	onNavigate: (direction: "forward" | "backward") => void;
 	onDragEnd: (position: { x: number; y: number }) => void;
 }
@@ -22,6 +26,8 @@ export function CanvasPalette({
 	classes,
 	activeClassId,
 	canvasMode,
+	canUndo,
+	canRedo,
 	position,
 	isDraggingAnnotation,
 	trashRef,
@@ -29,6 +35,8 @@ export function CanvasPalette({
 	onDeleteClass,
 	onAddClass,
 	onModeChange,
+	onUndo,
+	onRedo,
 	onNavigate,
 	onDragEnd,
 }: CanvasPaletteProps) {
@@ -174,6 +182,44 @@ export function CanvasPalette({
 						<path d="M3.5 6h9l-1.5 8h-6z"/>
 						<path d="M5 6l1-3.5h4L11 6"/>
 						<path d="M13.5 9c1 1 1.5 2.5.5 3.2"/>
+					</svg>
+				</button>
+				<button
+					className={`${styles.iconBtn} ${canvasMode === "delete" ? styles.iconBtnActive : ""}`}
+					onClick={() => onModeChange("delete")}
+					aria-label="Delete mode"
+					data-testid="mode-delete"
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+						<path d="M3 4h10"/>
+						<path d="M5 4V3h6v1"/>
+						<path d="M4 4l1 10h6l1-10"/>
+						<path d="M7 7v4"/>
+						<path d="M9 7v4"/>
+					</svg>
+				</button>
+				<button
+					className={styles.iconBtn}
+					onClick={onUndo}
+					disabled={!canUndo}
+					aria-label="Undo"
+					data-testid="undo-btn"
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+						<path d="M4 6l-3 3 3 3"/>
+						<path d="M1 9h9a4 4 0 0 1 0 8H8"/>
+					</svg>
+				</button>
+				<button
+					className={styles.iconBtn}
+					onClick={onRedo}
+					disabled={!canRedo}
+					aria-label="Redo"
+					data-testid="redo-btn"
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+						<path d="M12 6l3 3-3 3"/>
+						<path d="M15 9H6a4 4 0 0 0 0 8h2"/>
 					</svg>
 				</button>
 				{adding ? (

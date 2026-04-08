@@ -7,6 +7,7 @@ interface AnnotationPolygonProps {
 	isDrawing: boolean;
 	isActiveClass: boolean;
 	isSelected: boolean;
+	isDeleteMode: boolean;
 	onMoveStart: (annotationId: string) => void;
 	onMove: (annotationId: string, delta: Point) => void;
 	onMoveEnd: (annotationId: string, screenX: number, screenY: number) => void;
@@ -35,6 +36,7 @@ export function AnnotationPolygon({
 	isDrawing,
 	isActiveClass,
 	isSelected,
+	isDeleteMode,
 	onMoveStart,
 	onMove,
 	onMoveEnd,
@@ -51,6 +53,12 @@ export function AnnotationPolygon({
 	const pointerIdRef = useRef<number | null>(null);
 
 	const handlePolyDown = (e: React.PointerEvent) => {
+		if (isDeleteMode) {
+			e.stopPropagation();
+			onSelect(annotation.id);
+			return;
+		}
+
 		if (isDrawing || !isActiveClass) return;
 
 		e.stopPropagation(); // Prevent lasso start on polygon click.
@@ -110,7 +118,7 @@ export function AnnotationPolygon({
 
 	return (
 		<g
-			style={{ pointerEvents: isDrawing || !isActiveClass ? "none" : "auto" }}
+			style={{ pointerEvents: isDeleteMode ? "auto" : (isDrawing || !isActiveClass ? "none" : "auto") }}
 			data-testid="annotation-polygon"
 		>
 			{/* Glow filter for selection aura */}
@@ -142,7 +150,7 @@ export function AnnotationPolygon({
 				onPointerDown={handlePolyDown}
 				onPointerMove={handlePolyMove}
 				onPointerUp={handlePolyUp}
-				style={{ cursor: isDrawing || !isActiveClass ? "default" : "pointer" }}
+				style={{ cursor: isDeleteMode ? "pointer" : (isDrawing || !isActiveClass ? "default" : "pointer") }}
 			/>
 		</g>
 	);
