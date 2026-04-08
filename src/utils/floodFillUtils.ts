@@ -1,12 +1,15 @@
 import type { Point } from "../types/appState";
 
-const WALL_THRESHOLD = 200;
+const WALL_THRESHOLDS = [200, 220, 240];
 const BLUR_RADIUS = 1;
 const OPENING_RADIUS = 8;
 const INNER_PADDING = 3;
 const DP_TOLERANCE = 0.003;
 const MAX_FILL_RATIO = 0.5;
 const MIN_FILL_PIXELS = 100;
+const NUM_RAYS = 72;
+const RAY_SMOOTH_WINDOW = 4; // neighbors on each side (total window = 9)
+const MIN_RAY_MEDIAN = 5; // minimum bubble radius in pixels
 
 // --- Public API ---
 
@@ -51,26 +54,33 @@ export function floodFillCore(
 	if (clickX < 0 || clickX >= width || clickY < 0 || clickY >= height)
 		return null;
 
-	// Light blur to smooth out noise / JPEG artifacts.
 	const blurred = boxBlur(gray, width, height, BLUR_RADIUS);
+	const totalPixels = width * height;
+	const maxFill = totalPixels * MAX_FILL_RATIO;
 
-	// Wall mask: dark pixels are walls.
-	const walls = new Uint8Array(width * height);
-	for (let i = 0; i < width * height; i++) {
-		walls[i] = blurred[i]! < WALL_THRESHOLD ? 1 : 0;
-	}
+	// --- Phase 1: Flood fill with cascading thresholds ---
+	// Higher thresholds turn more gray background into walls, closing wide
+	// openings where manga art or panel borders partially seal the gap.
+	let floodResult: Point[] | null = null;
 
-	if (walls[clickY * width + clickX]) return null;
+	for (const threshold of WALL_THRESHOLDS) {
+		const walls = new Uint8Array(totalPixels);
+		for (let i = 0; i < totalPixels; i++) {
+			walls[i] = blurred[i]! < threshold ? 1 : 0;
+		}
 
-	// Flood fill from click point.
-	let filled = floodFill(walls, width, height, clickX, clickY);
-	let fillCount = countOnes(filled);
+		if (walls[clickY * width + clickX]) continue;
 
-	if (fillCount < MIN_FILL_PIXELS) return null;
+		let filled = floodFill(walls, width, height, clickX, clickY);
+		let fillCount = countOnes(filled);
 
-	// If too large (leaked through a gap in the outline), apply morphological
-	// opening to disconnect the thin leak from the core bubble region.
-	if (fillCount > width * height * MAX_FILL_RATIO) {
+		if (fillCount < MIN_FILL_PIXELS) continue;
+
+		if (fillCount <= maxFill) {
+			floodResult = finalizeFill(filled, width, height);
+			break;
+		}
+
 		const opened = morphOpen(
 			filled,
 			width,
@@ -79,18 +89,46 @@ export function floodFillCore(
 			clickX,
 			clickY,
 		);
-		if (!opened) return null;
+		if (!opened) continue;
 		filled = opened;
 		fillCount = countOnes(filled);
-		if (
-			fillCount > width * height * MAX_FILL_RATIO ||
-			fillCount < MIN_FILL_PIXELS
-		) {
-			return null;
+
+		if (fillCount >= MIN_FILL_PIXELS && fillCount <= maxFill) {
+			floodResult = finalizeFill(filled, width, height);
+			break;
 		}
 	}
 
-	// Erode for inner padding.
+	// Good flood-fill result — use it.
+	if (floodResult && floodResult.length >= 5) return floodResult;
+
+	// --- Phase 2: Ray-based fallback ---
+	// Casts rays from click point to find bubble outline directly. Handles
+	// open bubbles and small bubbles where flood fill fragments on text.
+	const walls = new Uint8Array(totalPixels);
+	for (let i = 0; i < totalPixels; i++) {
+		walls[i] = blurred[i]! < WALL_THRESHOLDS[0]! ? 1 : 0;
+	}
+
+	if (!walls[clickY * width + clickX]) {
+		const rayResult = rayBasedPolygon(
+			walls,
+			width,
+			height,
+			clickX,
+			clickY,
+		);
+		if (rayResult && rayResult.length >= 3) return rayResult;
+	}
+
+	return floodResult;
+}
+
+function finalizeFill(
+	filled: Uint8Array,
+	width: number,
+	height: number,
+): Point[] | null {
 	erode(filled, width, height, INNER_PADDING);
 
 	const contour = traceContour(filled, width, height);
@@ -101,6 +139,119 @@ export function floodFillCore(
 		y: y / height,
 	}));
 	const simplified = douglasPeucker(normalized, DP_TOLERANCE);
+	return simplified.length >= 3 ? simplified : null;
+}
+
+// --- Ray-based bubble detection ---
+// Casts rays outward from the click point, finds the distance to the first
+// wall in each direction, then smooths the distances to ignore text hits
+// and interpolate across openings.
+
+function rayBasedPolygon(
+	walls: Uint8Array,
+	width: number,
+	height: number,
+	clickX: number,
+	clickY: number,
+): Point[] | null {
+	const maxDist = Math.max(width, height);
+
+	// Cast rays and measure distance to first wall.
+	const distances: number[] = [];
+	for (let i = 0; i < NUM_RAYS; i++) {
+		const angle = (i / NUM_RAYS) * 2 * Math.PI;
+		const dx = Math.cos(angle);
+		const dy = Math.sin(angle);
+		let dist = 1;
+		while (dist < maxDist) {
+			const px = Math.round(clickX + dx * dist);
+			const py = Math.round(clickY + dy * dist);
+			if (px < 0 || px >= width || py < 0 || py >= height) break;
+			if (walls[py * width + px]) break;
+			dist++;
+		}
+		distances.push(dist);
+	}
+
+	// Compute global median — represents the typical bubble radius.
+	const sorted = [...distances].sort((a, b) => a - b);
+	const median = sorted[Math.floor(sorted.length / 2)]!;
+	if (median < MIN_RAY_MEDIAN) return null;
+	if (median > Math.max(width, height) * 0.4) return null;
+
+	// --- Step 1: Interpolate across openings ---
+	// Rays that travel much further than the median went through an opening
+	// in the bubble outline. Instead of capping them (which creates a round
+	// bump), linearly interpolate between the nearest wall-hitting rays on
+	// each side so the polygon smoothly bridges the gap.
+	const openingThreshold = median * 1.5;
+	const isOpening = distances.map((d) => d > openingThreshold);
+
+	// Two-pass sweep to find nearest non-opening ray on each side.
+	const leftAnchor = new Int32Array(NUM_RAYS).fill(-1);
+	const rightAnchor = new Int32Array(NUM_RAYS).fill(-1);
+	let last = -1;
+	for (let pass = 0; pass < 2; pass++) {
+		for (let i = 0; i < NUM_RAYS; i++) {
+			if (!isOpening[i]) last = i;
+			leftAnchor[i] = last;
+		}
+	}
+	last = -1;
+	for (let pass = 0; pass < 2; pass++) {
+		for (let i = NUM_RAYS - 1; i >= 0; i--) {
+			if (!isOpening[i]) last = i;
+			rightAnchor[i] = last;
+		}
+	}
+
+	const interpolated = distances.map((d, i) => {
+		if (!isOpening[i]) return d;
+		const li = leftAnchor[i]!;
+		const ri = rightAnchor[i]!;
+		if (li === -1 || ri === -1 || li === ri) return median;
+		const leftDist = (i - li + NUM_RAYS) % NUM_RAYS;
+		const rightDist = (ri - i + NUM_RAYS) % NUM_RAYS;
+		const total = leftDist + rightDist;
+		if (total === 0) return median;
+		const t = leftDist / total;
+		return Math.round(distances[li]! * (1 - t) + distances[ri]! * t);
+	});
+
+	// --- Step 2: Smooth out text hits ---
+	// Short outliers (rays stopped by text characters) are replaced with
+	// the local angular median so the polygon follows the bubble outline.
+	const smoothed: number[] = [];
+	for (let i = 0; i < NUM_RAYS; i++) {
+		const win: number[] = [];
+		for (let j = -RAY_SMOOTH_WINDOW; j <= RAY_SMOOTH_WINDOW; j++) {
+			win.push(interpolated[(i + j + NUM_RAYS) % NUM_RAYS]!);
+		}
+		win.sort((a, b) => a - b);
+		const localMedian = win[RAY_SMOOTH_WINDOW]!;
+
+		const d = interpolated[i]!;
+		if (d < localMedian * 0.5) {
+			smoothed.push(localMedian);
+		} else {
+			smoothed.push(d);
+		}
+	}
+
+	// Apply inner padding.
+	const padded = smoothed.map((d) => Math.max(1, d - INNER_PADDING));
+
+	// Convert to normalized polygon.
+	const points: Point[] = [];
+	for (let i = 0; i < NUM_RAYS; i++) {
+		const angle = (i / NUM_RAYS) * 2 * Math.PI;
+		points.push({
+			x: Math.max(0, Math.min(1, (clickX + Math.cos(angle) * padded[i]!) / width)),
+			y: Math.max(0, Math.min(1, (clickY + Math.sin(angle) * padded[i]!) / height)),
+		});
+	}
+
+	const simplified = douglasPeucker(points, DP_TOLERANCE);
 	return simplified.length >= 3 ? simplified : null;
 }
 
