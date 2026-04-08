@@ -41,6 +41,9 @@ const defaultProps = {
 	onAnnotationMove: noop,
 	onAnnotationMoveEnd: noop,
 	onSelectAnnotation: noop,
+	onVertexMoveStart: noop,
+	onVertexMove: noop,
+	onVertexMoveEnd: noop,
 };
 
 describe("Canvas", () => {

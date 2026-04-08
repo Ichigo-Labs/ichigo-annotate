@@ -326,6 +326,20 @@ export function App() {
 							});
 						}
 					}}
+					onVertexMoveStart={() => {
+						dispatch({ type: "push_undo_snapshot" });
+					}}
+					onVertexMove={(annotationId, vertexIndex, position) => {
+						if (!selectedFile) return;
+						dispatch({
+							type: "move_vertex",
+							fileId: selectedFile.id,
+							annotationId,
+							vertexIndex,
+							position,
+						});
+					}}
+					onVertexMoveEnd={() => {}}
 					onSelectAnnotation={(annotationId) => {
 						if (appState.ui.canvasMode === "delete" && annotationId && selectedFile) {
 							dispatch({ type: "delete_annotation", fileId: selectedFile.id, annotationId });

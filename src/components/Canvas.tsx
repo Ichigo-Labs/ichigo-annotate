@@ -23,6 +23,9 @@ interface CanvasProps {
 	onAnnotationMove: (annotationId: string, delta: Point) => void;
 	onAnnotationMoveEnd: (annotationId: string, droppedOnTrash: boolean) => void;
 	onSelectAnnotation: (annotationId: string | null) => void;
+	onVertexMoveStart: (annotationId: string) => void;
+	onVertexMove: (annotationId: string, vertexIndex: number, position: Point) => void;
+	onVertexMoveEnd: (annotationId: string) => void;
 }
 
 const MIN_POINT_DISTANCE = 0.008;
@@ -47,6 +50,9 @@ export function Canvas({
 	onAnnotationMove,
 	onAnnotationMoveEnd,
 	onSelectAnnotation,
+	onVertexMoveStart,
+	onVertexMove,
+	onVertexMoveEnd,
 }: CanvasProps) {
 	const svgRef = useRef<SVGSVGElement>(null);
 	const elevatedSvgRef = useRef<SVGSVGElement>(null);
@@ -179,6 +185,9 @@ export function Canvas({
 							onMove={onAnnotationMove}
 							onMoveEnd={handleMoveEnd}
 							onSelect={onSelectAnnotation}
+							onVertexMoveStart={onVertexMoveStart}
+							onVertexMove={onVertexMove}
+							onVertexMoveEnd={onVertexMoveEnd}
 							svgRef={svgRef}
 						/>
 					))}
@@ -213,11 +222,14 @@ export function Canvas({
 									isDrawing={isDrawing}
 									isActiveClass={ann.classId === activeClassId}
 									isDeleteMode={isDeleteMode}
-								isSelected={true}
+									isSelected={true}
 									onMoveStart={handleMoveStart}
 									onMove={onAnnotationMove}
 									onMoveEnd={handleMoveEnd}
 									onSelect={onSelectAnnotation}
+									onVertexMoveStart={onVertexMoveStart}
+									onVertexMove={onVertexMove}
+									onVertexMoveEnd={onVertexMoveEnd}
 									svgRef={elevatedSvgRef}
 								/>
 							);

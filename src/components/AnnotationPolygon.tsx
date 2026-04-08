@@ -12,6 +12,9 @@ interface AnnotationPolygonProps {
 	onMove: (annotationId: string, delta: Point) => void;
 	onMoveEnd: (annotationId: string, screenX: number, screenY: number) => void;
 	onSelect: (annotationId: string) => void;
+	onVertexMoveStart?: (annotationId: string) => void;
+	onVertexMove?: (annotationId: string, vertexIndex: number, position: Point) => void;
+	onVertexMoveEnd?: (annotationId: string) => void;
 	svgRef: React.RefObject<SVGSVGElement | null>;
 }
 
@@ -29,6 +32,7 @@ function pointerToSvg(
 }
 
 const HOLD_DELAY = 200;
+const VERTEX_RADIUS = 0.005;
 
 export function AnnotationPolygon({
 	annotation,
@@ -41,6 +45,9 @@ export function AnnotationPolygon({
 	onMove,
 	onMoveEnd,
 	onSelect,
+	onVertexMoveStart,
+	onVertexMove,
+	onVertexMoveEnd,
 	svgRef,
 }: AnnotationPolygonProps) {
 	const holdTimer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -109,12 +116,39 @@ export function AnnotationPolygon({
 		clicked.current = false;
 	};
 
+	// -- Vertex handle dragging --
+
+	const draggingVertexRef = useRef<number | null>(null);
+
+	const handleVertexDown = (e: React.PointerEvent, vertexIndex: number) => {
+		e.stopPropagation();
+		draggingVertexRef.current = vertexIndex;
+		(e.target as Element).setPointerCapture(e.pointerId);
+		onVertexMoveStart?.(annotation.id);
+	};
+
+	const handleVertexMove = (e: React.PointerEvent) => {
+		if (draggingVertexRef.current === null) return;
+		e.stopPropagation();
+		const pos = pointerToSvg(e, svgRef.current);
+		if (!pos) return;
+		onVertexMove?.(annotation.id, draggingVertexRef.current, pos);
+	};
+
+	const handleVertexUp = (e: React.PointerEvent) => {
+		if (draggingVertexRef.current === null) return;
+		e.stopPropagation();
+		draggingVertexRef.current = null;
+		onVertexMoveEnd?.(annotation.id);
+	};
+
 	// Build polygon points string.
 	const pointsStr = annotation.vertices
 		.map((v) => `${v.x},${v.y}`)
 		.join(" ");
 
 	const filterId = `glow-${annotation.id}`;
+	const showHandles = isSelected && !isDeleteMode && !isDrawing;
 
 	return (
 		<g
@@ -152,6 +186,22 @@ export function AnnotationPolygon({
 				onPointerUp={handlePolyUp}
 				style={{ cursor: isDeleteMode ? "pointer" : (isDrawing || !isActiveClass ? "default" : "pointer") }}
 			/>
+			{/* Vertex handles for edge editing */}
+			{showHandles && annotation.vertices.map((v, i) => (
+				<circle
+					key={i}
+					cx={v.x}
+					cy={v.y}
+					r={VERTEX_RADIUS}
+					fill="white"
+					stroke={classColor}
+					strokeWidth={0.0015}
+					style={{ cursor: "grab" }}
+					onPointerDown={(e) => handleVertexDown(e, i)}
+					onPointerMove={handleVertexMove}
+					onPointerUp={handleVertexUp}
+				/>
+			))}
 		</g>
 	);
 }
