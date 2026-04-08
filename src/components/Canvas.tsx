@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import type { Annotation, AnnotationClass, Point } from "../types/appState";
+import type { Annotation, AnnotationClass, CanvasMode, Point } from "../types/appState";
 import { distanceBetween, isPolygonClosed } from "../utils/areaUtils";
 import { AnnotationPolygon } from "./AnnotationPolygon";
 import styles from "./Canvas.module.css";
@@ -12,11 +12,13 @@ interface CanvasProps {
 	activeClassId: string;
 	selectedAnnotationId: string | null;
 	stretchImage: boolean;
+	canvasMode: CanvasMode;
 	trashRef: React.RefObject<HTMLDivElement | null>;
 	onLassoStart: (point: Point) => void;
 	onLassoPoint: (point: Point) => void;
 	onLassoComplete: () => void;
 	onLassoCancel: () => void;
+	onBucketFill: (point: Point) => void;
 	onAnnotationMoveStart: (annotationId: string) => void;
 	onAnnotationMove: (annotationId: string, delta: Point) => void;
 	onAnnotationMoveEnd: (annotationId: string, droppedOnTrash: boolean) => void;
@@ -34,11 +36,13 @@ export function Canvas({
 	activeClassId,
 	selectedAnnotationId,
 	stretchImage,
+	canvasMode,
 	trashRef,
 	onLassoStart,
 	onLassoPoint,
 	onLassoComplete,
 	onLassoCancel,
+	onBucketFill,
 	onAnnotationMoveStart,
 	onAnnotationMove,
 	onAnnotationMoveEnd,
@@ -86,6 +90,13 @@ export function Canvas({
 	const handleSvgPointerDown = (e: React.PointerEvent) => {
 		const point = toSvgCoords(e);
 		if (!point) return;
+
+		if (canvasMode === "bucket") {
+			onSelectAnnotation(null);
+			onBucketFill(point);
+			return;
+		}
+
 		(e.target as Element).setPointerCapture(e.pointerId);
 		onSelectAnnotation(null);
 		onLassoStart(point);

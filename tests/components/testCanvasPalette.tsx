@@ -12,12 +12,14 @@ const classes: AnnotationClass[] = [
 const defaultProps = {
 	classes,
 	activeClassId: "c1",
+	canvasMode: "lasso" as const,
 	position: { x: 10, y: 10 },
 	isDraggingAnnotation: false,
 	trashRef: createRef<HTMLDivElement>(),
 	onSelectClass: vi.fn(),
 	onDeleteClass: vi.fn(),
 	onAddClass: vi.fn(),
+	onModeChange: vi.fn(),
 	onNavigate: vi.fn(),
 	onDragEnd: vi.fn(),
 };

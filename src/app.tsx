@@ -16,6 +16,9 @@ import {
 } from "./utils/importUtils";
 import type { CocoData } from "./utils/importUtils";
 import { exportAsZip } from "./services/exportService";
+import { floodFillToPolygon } from "./utils/floodFillUtils";
+import { polygonizeVertices } from "./utils/areaUtils";
+import type { Point } from "./types/appState";
 import { Sidebar } from "./components/Sidebar";
 import { FileList } from "./components/FileList";
 import { Canvas } from "./components/Canvas";
@@ -225,6 +228,16 @@ export function App() {
 		}
 	};
 
+	const handleBucketFill = async (point: Point) => {
+		if (!selectedFile) return;
+		const vertices = await floodFillToPolygon(selectedFile.dataUrl, point);
+		if (!vertices) return;
+		const finalVertices = appState.general.polygonize
+			? polygonizeVertices(vertices, appState.general.polygonizeSides)
+			: vertices;
+		dispatch({ type: "add_annotation", vertices: finalVertices });
+	};
+
 	return (
 		<div className={styles.appContainer}>
 			{/* Sidebar with file list */}
@@ -278,6 +291,7 @@ export function App() {
 					activeClassId={appState.ui.activeClassId}
 					selectedAnnotationId={appState.ui.selectedAnnotationId}
 					stretchImage={appState.ui.stretchImage}
+					canvasMode={appState.ui.canvasMode}
 					trashRef={trashRef}
 					onLassoStart={(p) =>
 						dispatch({ type: "start_lasso", point: p })
@@ -287,6 +301,7 @@ export function App() {
 					}
 					onLassoComplete={() => dispatch({ type: "complete_lasso" })}
 					onLassoCancel={() => dispatch({ type: "cancel_lasso" })}
+					onBucketFill={handleBucketFill}
 					onAnnotationMoveStart={(annotationId) => {
 						setIsDraggingAnnotation(true);
 						dispatch({ type: "select_annotation", annotationId });
@@ -317,6 +332,7 @@ export function App() {
 				<CanvasPalette
 					classes={appState.general.classes}
 					activeClassId={appState.ui.activeClassId}
+					canvasMode={appState.ui.canvasMode}
 					position={appState.ui.palettePosition}
 					isDraggingAnnotation={isDraggingAnnotation}
 					trashRef={trashRef}
@@ -326,6 +342,9 @@ export function App() {
 					}
 					onAddClass={(name, color) =>
 						dispatch({ type: "add_class", name, color })
+					}
+					onModeChange={(mode) =>
+						dispatch({ type: "set_canvas_mode", mode })
 					}
 					onNavigate={(dir) =>
 						dispatch({ type: "navigate_file", direction: dir })

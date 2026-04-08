@@ -27,6 +27,7 @@ export interface ImageFile {
 }
 
 export type ExportFormat = "yolo" | "coco" | "json" | "voc" | "labelme";
+export type CanvasMode = "lasso" | "bucket";
 
 // --- Toast ---
 
@@ -49,6 +50,7 @@ export interface UIState {
 	importModalOpen: boolean;
 	exportModalOpen: boolean;
 	stretchImage: boolean;
+	canvasMode: CanvasMode;
 	draggingAnnotationId: string | null;
 	selectedAnnotationId: string | null;
 	toasts: Toast[];
@@ -117,7 +119,9 @@ export type AppAction =
 			message: string;
 			progress?: { current: number; total: number };
 	  }
-	| { type: "remove_toast"; id: string };
+	| { type: "remove_toast"; id: string }
+	| { type: "set_canvas_mode"; mode: CanvasMode }
+	| { type: "add_annotation"; vertices: Point[] };
 
 // --- Constants ---
 
@@ -144,6 +148,7 @@ export function createInitialState(): AppState {
 			importModalOpen: false,
 			exportModalOpen: false,
 			stretchImage: true,
+			canvasMode: "lasso" as const,
 			draggingAnnotationId: null,
 			selectedAnnotationId: null,
 			toasts: [],

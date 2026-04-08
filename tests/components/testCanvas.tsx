@@ -35,6 +35,8 @@ const defaultProps = {
 	onLassoPoint: noop,
 	onLassoComplete: noop,
 	onLassoCancel: noop,
+	onBucketFill: noop,
+	canvasMode: "lasso" as const,
 	onAnnotationMoveStart: noop,
 	onAnnotationMove: noop,
 	onAnnotationMoveEnd: noop,

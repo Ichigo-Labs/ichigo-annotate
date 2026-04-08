@@ -1,17 +1,19 @@
 import { useRef, useState } from "react";
-import type { AnnotationClass } from "../types/appState";
+import type { AnnotationClass, CanvasMode } from "../types/appState";
 import { generateDistinctColor } from "../utils/areaUtils";
 import styles from "./CanvasPalette.module.css";
 
 interface CanvasPaletteProps {
 	classes: AnnotationClass[];
 	activeClassId: string;
+	canvasMode: CanvasMode;
 	position: { x: number; y: number };
 	isDraggingAnnotation: boolean;
 	trashRef: React.RefObject<HTMLDivElement | null>;
 	onSelectClass: (classId: string) => void;
 	onDeleteClass: (classId: string) => void;
 	onAddClass: (name: string, color: string) => void;
+	onModeChange: (mode: CanvasMode) => void;
 	onNavigate: (direction: "forward" | "backward") => void;
 	onDragEnd: (position: { x: number; y: number }) => void;
 }
@@ -19,12 +21,14 @@ interface CanvasPaletteProps {
 export function CanvasPalette({
 	classes,
 	activeClassId,
+	canvasMode,
 	position,
 	isDraggingAnnotation,
 	trashRef,
 	onSelectClass,
 	onDeleteClass,
 	onAddClass,
+	onModeChange,
 	onNavigate,
 	onDragEnd,
 }: CanvasPaletteProps) {
@@ -149,6 +153,29 @@ export function CanvasPalette({
 
 			{/* Bottom row */}
 			<div className={styles.bottomRow}>
+				<button
+					className={`${styles.iconBtn} ${canvasMode === "lasso" ? styles.iconBtnActive : ""}`}
+					onClick={() => onModeChange("lasso")}
+					aria-label="Lasso mode"
+					data-testid="mode-lasso"
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+						<path d="M8 2.5C4.5 2.5 2 5 2 7.5S4.5 12.5 8 12.5c1.8 0 3.3-.7 4.3-1.8" strokeDasharray="2.5 1.5"/>
+						<path d="M12.3 10.7l1.2 3.8"/>
+					</svg>
+				</button>
+				<button
+					className={`${styles.iconBtn} ${canvasMode === "bucket" ? styles.iconBtnActive : ""}`}
+					onClick={() => onModeChange("bucket")}
+					aria-label="Bucket fill mode"
+					data-testid="mode-bucket"
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+						<path d="M3.5 6h9l-1.5 8h-6z"/>
+						<path d="M5 6l1-3.5h4L11 6"/>
+						<path d="M13.5 9c1 1 1.5 2.5.5 3.2"/>
+					</svg>
+				</button>
 				{adding ? (
 					<input
 						className={styles.newClassInput}

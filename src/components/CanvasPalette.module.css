@@ -128,6 +128,16 @@
 	background: var(--color-surface-hover);
 }
 
+.iconBtnActive {
+	background: var(--color-primary);
+	border-color: var(--color-primary);
+}
+
+.iconBtnActive:hover {
+	background: var(--color-primary);
+	filter: brightness(1.15);
+}
+
 .newClassInput {
 	flex: 1;
 	padding: 4px 8px;

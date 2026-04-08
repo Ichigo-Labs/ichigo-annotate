@@ -170,6 +170,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 					toasts: state.ui.toasts.filter((t) => t.id !== action.id),
 				},
 			};
+
+		// -- Canvas mode --
+		case "set_canvas_mode":
+			return {
+				...state,
+				ui: { ...state.ui, canvasMode: action.mode },
+			};
+		case "add_annotation":
+			return handleAddAnnotation(state, action.vertices);
 	}
 }
 
@@ -454,6 +463,28 @@ function handleMoveAnnotation(
 									: a,
 							),
 						}
+					: f,
+			),
+		},
+	};
+}
+
+function handleAddAnnotation(state: AppState, vertices: Point[]): AppState {
+	if (!state.ui.selectedFileId || vertices.length < 3) return state;
+
+	const annotation = {
+		id: `ann-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+		classId: state.ui.activeClassId,
+		vertices,
+	};
+
+	return {
+		...state,
+		general: {
+			...state.general,
+			files: state.general.files.map((f) =>
+				f.id === state.ui.selectedFileId
+					? { ...f, annotations: [...f.annotations, annotation] }
 					: f,
 			),
 		},
