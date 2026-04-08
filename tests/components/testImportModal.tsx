@@ -91,9 +91,9 @@ describe("ImportModal", () => {
 
 		fireEvent.click(screen.getByTestId("import-done"));
 		expect(onImport).toHaveBeenCalledOnce();
-		const importedFiles: File[] = onImport.mock.calls[0][0];
+		const importedFiles = onImport.mock.calls[0]![0] as File[];
 		expect(importedFiles).toHaveLength(1);
-		expect(importedFiles[0].name).toBe("img.png");
-		expect(importedFiles[0].type).toBe("image/png");
+		expect(importedFiles[0]!.name).toBe("img.png");
+		expect(importedFiles[0]!.type).toBe("image/png");
 	});
 });
