@@ -42,6 +42,33 @@
 	color: var(--color-text);
 }
 
+.sourceToggle {
+	display: flex;
+	gap: 0;
+	border: 1px solid var(--color-border);
+	border-radius: 6px;
+	overflow: hidden;
+	width: fit-content;
+}
+
+.sourceBtn {
+	padding: 6px 16px;
+	font-size: 13px;
+	border: none;
+	background: var(--color-surface);
+	color: var(--color-text-muted);
+	cursor: pointer;
+}
+
+.sourceBtn + .sourceBtn {
+	border-left: 1px solid var(--color-border);
+}
+
+.sourceBtnActive {
+	background: var(--color-primary);
+	color: #fff;
+}
+
 .buttons {
 	display: flex;
 	justify-content: flex-end;
