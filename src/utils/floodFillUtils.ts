@@ -3,7 +3,7 @@ import type { Point } from "../types/appState";
 const WALL_THRESHOLDS = [200, 220, 240];
 const BLUR_RADIUS = 1;
 const OPENING_RADIUS = 8;
-const INNER_PADDING = 3;
+const INNER_PADDING = 2;
 const DP_TOLERANCE = 0.003;
 const MAX_FILL_RATIO = 0.5;
 const MIN_FILL_PIXELS = 100;
