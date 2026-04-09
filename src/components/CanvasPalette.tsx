@@ -203,7 +203,7 @@ export function CanvasPalette({
 					onClick={onUndo}
 					disabled={!canUndo}
 					aria-label="Undo"
-					data-testid="undo-btn"
+					data-testid="palette-undo-btn"
 				>
 					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
 						<path d="M4 6l-3 3 3 3"/>
