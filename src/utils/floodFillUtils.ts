@@ -10,6 +10,7 @@ const MIN_FILL_PIXELS = 100;
 const NUM_RAYS = 72;
 const RAY_SMOOTH_WINDOW = 4; // neighbors on each side (total window = 9)
 const MIN_RAY_MEDIAN = 5; // minimum bubble radius in pixels
+const DARK_BUBBLE_THRESHOLD = 128;
 
 // --- Public API ---
 
@@ -57,6 +58,15 @@ export function floodFillCore(
 	const blurred = boxBlur(gray, width, height, BLUR_RADIUS);
 	const totalPixels = width * height;
 	const maxFill = totalPixels * MAX_FILL_RATIO;
+
+	// Invert for dark bubbles: if the clicked pixel is dark, flip the
+	// grayscale so the wall detection (dark = wall) works for inverted
+	// bubbles (black fill with white/bright outlines).
+	if (blurred[clickY * width + clickX]! < DARK_BUBBLE_THRESHOLD) {
+		for (let i = 0; i < totalPixels; i++) {
+			blurred[i] = 255 - blurred[i]!;
+		}
+	}
 
 	// --- Phase 1: Flood fill with cascading thresholds ---
 	// Higher thresholds turn more gray background into walls, closing wide
