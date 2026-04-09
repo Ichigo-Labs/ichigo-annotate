@@ -239,7 +239,7 @@ export function App() {
 	};
 
 	return (
-		<div className={styles.appContainer}>
+		<div className={styles.appContainer} onContextMenu={(e) => e.preventDefault()}>
 			{/* Sidebar with file list */}
 			<Sidebar
 				collapsed={appState.ui.sidebarCollapsed}
@@ -251,6 +251,7 @@ export function App() {
 			>
 				<FileList
 					files={filteredFiles}
+					totalFileCount={appState.general.files.length}
 					selectedFileId={appState.ui.selectedFileId}
 					searchQuery={appState.ui.searchQuery}
 					lastDeletedFile={appState.general.lastDeletedFile}

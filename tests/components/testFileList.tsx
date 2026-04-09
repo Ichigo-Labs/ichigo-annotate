@@ -24,6 +24,7 @@ const noop = vi.fn();
 
 const defaultProps = {
 	files,
+	totalFileCount: files.length,
 	selectedFileId: null as string | null,
 	searchQuery: "",
 	lastDeletedFile: null as ImageFile | null,
@@ -42,9 +43,9 @@ const defaultProps = {
 };
 
 describe("FileList", () => {
-	it("renders the Files header", () => {
+	it("renders the Files header with count", () => {
 		render(<FileList {...defaultProps} />);
-		expect(screen.getByText("Files")).toBeInTheDocument();
+		expect(screen.getByText("Files (2)")).toBeInTheDocument();
 	});
 
 	it("renders correct number of file items", () => {

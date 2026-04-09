@@ -5,6 +5,7 @@ import styles from "./FileList.module.css";
 
 interface FileListProps {
 	files: ImageFile[];
+	totalFileCount: number;
 	selectedFileId: string | null;
 	searchQuery: string;
 	lastDeletedFile: ImageFile | null;
@@ -24,6 +25,7 @@ interface FileListProps {
 
 export function FileList({
 	files,
+	totalFileCount,
 	selectedFileId,
 	searchQuery,
 	lastDeletedFile,
@@ -55,7 +57,7 @@ export function FileList({
 
 	return (
 		<div className={styles.container} data-testid="file-list">
-			<div className={styles.header}>Files</div>
+			<div className={styles.header}>Files ({totalFileCount})</div>
 
 			<input
 				className={styles.searchInput}

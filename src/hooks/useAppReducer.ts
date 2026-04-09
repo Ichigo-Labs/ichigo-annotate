@@ -634,7 +634,7 @@ function handleNavigateFile(
 
 	return {
 		...state,
-		ui: { ...state.ui, selectedFileId: files[nextIndex]!.id, selectedAnnotationId: null },
+		ui: { ...state.ui, selectedFileId: files[nextIndex]!.id, selectedAnnotationId: null, annotationUndoStack: [], annotationRedoStack: [] },
 	};
 }
 
