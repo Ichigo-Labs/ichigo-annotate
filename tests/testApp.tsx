@@ -13,7 +13,7 @@ beforeEach(async () => {
 describe("App", () => {
 	it("renders sidebar with Files header", () => {
 		render(<App />);
-		expect(screen.getByText("Files")).toBeInTheDocument();
+		expect(screen.getByText("Files (0)")).toBeInTheDocument();
 	});
 
 	it("renders canvas area with placeholder", () => {
