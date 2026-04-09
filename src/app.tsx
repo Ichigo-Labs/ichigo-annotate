@@ -347,6 +347,9 @@ export function App() {
 							dispatch({ type: "select_annotation", annotationId });
 						}
 					}}
+					onNavigate={(dir) =>
+						dispatch({ type: "navigate_file", direction: dir })
+					}
 				/>
 				<CanvasPalette
 					classes={appState.general.classes}

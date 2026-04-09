@@ -44,6 +44,7 @@ const defaultProps = {
 	onVertexMoveStart: noop,
 	onVertexMove: noop,
 	onVertexMoveEnd: noop,
+	onNavigate: noop,
 };
 
 describe("Canvas", () => {

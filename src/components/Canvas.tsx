@@ -26,6 +26,7 @@ interface CanvasProps {
 	onVertexMoveStart: (annotationId: string) => void;
 	onVertexMove: (annotationId: string, vertexIndex: number, position: Point) => void;
 	onVertexMoveEnd: (annotationId: string) => void;
+	onNavigate: (direction: "forward" | "backward") => void;
 }
 
 const MIN_POINT_DISTANCE = 0.008;
@@ -54,6 +55,7 @@ export function Canvas({
 	onVertexMoveStart,
 	onVertexMove,
 	onVertexMoveEnd,
+	onNavigate,
 }: CanvasProps) {
 	const svgRef = useRef<SVGSVGElement>(null);
 	const elevatedSvgRef = useRef<SVGSVGElement>(null);
@@ -80,6 +82,18 @@ export function Canvas({
 			screenY >= rect.top &&
 			screenY <= rect.bottom
 		);
+	};
+
+	// Navigate forward/backward when clicking on the black margins.
+	const handleContainerClick = (e: React.MouseEvent) => {
+		if (e.target !== e.currentTarget) return;
+		const rect = e.currentTarget.getBoundingClientRect();
+		const clickX = e.clientX - rect.left;
+		if (clickX < rect.width / 2) {
+			onNavigate("backward");
+		} else {
+			onNavigate("forward");
+		}
 	};
 
 	// Convert pointer event to SVG coordinates.
@@ -148,7 +162,7 @@ export function Canvas({
 
 	if (!imageDataUrl) {
 		return (
-			<div className={styles.container} data-testid="canvas">
+			<div className={styles.container} data-testid="canvas" onClick={handleContainerClick}>
 				<div className={styles.placeholder}>
 					Import images to get started
 				</div>
@@ -157,7 +171,7 @@ export function Canvas({
 	}
 
 	return (
-		<div className={styles.container} data-testid="canvas">
+		<div className={styles.container} data-testid="canvas" onClick={handleContainerClick}>
 			<div className={stretchImage ? styles.imageWrapperStretch : styles.imageWrapper}>
 				<img
 					className={stretchImage ? styles.imageStretch : styles.image}
