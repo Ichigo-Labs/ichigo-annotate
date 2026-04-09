@@ -16,6 +16,25 @@ export function isPolygonClosed(
 	return distanceBetween(points[0]!, points[points.length - 1]!) < threshold;
 }
 
+// True if the gap between start and end is small relative to the total
+// drawn path, meaning the user drew most of the shape but didn't quite
+// close it.
+export function isNearlyComplete(
+	points: Point[],
+	maxGapRatio: number,
+): boolean {
+	if (points.length < 3) return false;
+
+	let pathLength = 0;
+	for (let i = 1; i < points.length; i++) {
+		pathLength += distanceBetween(points[i - 1]!, points[i]!);
+	}
+	if (pathLength === 0) return false;
+
+	const gap = distanceBetween(points[0]!, points[points.length - 1]!);
+	return gap / pathLength < maxGapRatio;
+}
+
 // Ray-casting algorithm for point-in-polygon test.
 export function pointInPolygon(point: Point, polygon: Point[]): boolean {
 	let inside = false;

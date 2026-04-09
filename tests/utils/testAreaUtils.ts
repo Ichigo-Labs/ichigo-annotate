@@ -3,6 +3,7 @@ import {
 	clampPoint,
 	distanceBetween,
 	generateDistinctColor,
+	isNearlyComplete,
 	isPolygonClosed,
 	nearestVertexIndex,
 	pointInPolygon,
@@ -46,6 +47,48 @@ describe("isPolygonClosed", () => {
 			{ x: 0.5, y: 0.5 },
 		];
 		expect(isPolygonClosed(pts, 0.02)).toBe(false);
+	});
+});
+
+describe("isNearlyComplete", () => {
+	it("returns false for fewer than 3 points", () => {
+		expect(isNearlyComplete([{ x: 0, y: 0 }, { x: 1, y: 0 }], 0.25)).toBe(false);
+	});
+
+	it("returns true when gap is small relative to path length", () => {
+		// Square with a small gap (drew ~80% of the shape)
+		const pts = [
+			{ x: 0, y: 0 },
+			{ x: 1, y: 0 },
+			{ x: 1, y: 1 },
+			{ x: 0, y: 1 },
+			// gap back to origin is 1, path length is 3, ratio = 0.33 > 0.25
+			// let's make it closer
+			{ x: 0, y: 0.2 },
+			// gap = 0.2, path length = 3 + 0.8 = 3.8, ratio ≈ 0.053
+		];
+		expect(isNearlyComplete(pts, 0.25)).toBe(true);
+	});
+
+	it("returns false when gap is large relative to path length", () => {
+		// Short path with a big gap
+		const pts = [
+			{ x: 0, y: 0 },
+			{ x: 0.1, y: 0 },
+			{ x: 0.1, y: 0.1 },
+			{ x: 0.5, y: 0.5 },
+			// gap ≈ 0.71, path length ≈ 0.1 + 0.1 + 0.57 = 0.77, ratio ≈ 0.92
+		];
+		expect(isNearlyComplete(pts, 0.25)).toBe(false);
+	});
+
+	it("returns false for zero-length path", () => {
+		const pts = [
+			{ x: 0.5, y: 0.5 },
+			{ x: 0.5, y: 0.5 },
+			{ x: 0.5, y: 0.5 },
+		];
+		expect(isNearlyComplete(pts, 0.25)).toBe(false);
 	});
 });
 

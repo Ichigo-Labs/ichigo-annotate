@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import type { Annotation, AnnotationClass, CanvasMode, Point } from "../types/appState";
-import { distanceBetween, isPolygonClosed } from "../utils/areaUtils";
+import { distanceBetween, isNearlyComplete, isPolygonClosed } from "../utils/areaUtils";
 import { AnnotationPolygon } from "./AnnotationPolygon";
 import styles from "./Canvas.module.css";
 
@@ -30,6 +30,7 @@ interface CanvasProps {
 
 const MIN_POINT_DISTANCE = 0.008;
 const CLOSE_THRESHOLD = 0.03;
+const NEAR_COMPLETE_GAP_RATIO = 0.25;
 
 export function Canvas({
 	imageDataUrl,
@@ -123,7 +124,10 @@ export function Canvas({
 
 	const handleSvgPointerUp = () => {
 		if (!activeLassoPoints) return;
-		if (isPolygonClosed(activeLassoPoints, CLOSE_THRESHOLD)) {
+		if (
+			isPolygonClosed(activeLassoPoints, CLOSE_THRESHOLD) ||
+			isNearlyComplete(activeLassoPoints, NEAR_COMPLETE_GAP_RATIO)
+		) {
 			onLassoComplete();
 		} else {
 			onLassoCancel();
