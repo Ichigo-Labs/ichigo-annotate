@@ -139,8 +139,6 @@ function finalizeFill(
 	width: number,
 	height: number,
 ): Point[] | null {
-	erode(filled, width, height, INNER_PADDING);
-
 	const contour = traceContour(filled, width, height);
 	if (!contour || contour.length < 3) return null;
 
@@ -149,7 +147,84 @@ function finalizeFill(
 		y: y / height,
 	}));
 	const simplified = douglasPeucker(normalized, DP_TOLERANCE);
-	return simplified.length >= 3 ? simplified : null;
+	if (simplified.length < 3) return null;
+	return insetPolygon(simplified, INNER_PADDING, width, height);
+}
+
+// --- Polygon inset ---
+// Shrinks a normalized polygon inward by the given pixel padding.
+// Works in pixel space to handle non-square images correctly.
+
+function insetPolygon(
+	points: Point[],
+	paddingPx: number,
+	width: number,
+	height: number,
+): Point[] {
+	const n = points.length;
+	if (n < 3) return points;
+
+	const px = points.map((p) => p.x * width);
+	const py = points.map((p) => p.y * height);
+
+	// Signed area determines winding direction.
+	let area = 0;
+	for (let i = 0; i < n; i++) {
+		const j = (i + 1) % n;
+		area += px[i]! * py[j]! - px[j]! * py[i]!;
+	}
+	const sign = area > 0 ? 1 : -1;
+
+	// Inward unit normal per edge.
+	const normals: { nx: number; ny: number }[] = [];
+	for (let i = 0; i < n; i++) {
+		const j = (i + 1) % n;
+		const edx = px[j]! - px[i]!;
+		const edy = py[j]! - py[i]!;
+		const len = Math.sqrt(edx * edx + edy * edy);
+		if (len < 1e-10) {
+			normals.push({ nx: 0, ny: 0 });
+		} else {
+			normals.push({ nx: -sign * edy / len, ny: sign * edx / len });
+		}
+	}
+
+	// Intersect consecutive offset edges to find inset vertices.
+	const result: Point[] = [];
+	for (let i = 0; i < n; i++) {
+		const prev = (i - 1 + n) % n;
+
+		const p1x = px[prev]! + normals[prev]!.nx * paddingPx;
+		const p1y = py[prev]! + normals[prev]!.ny * paddingPx;
+		const d1x = px[i]! - px[prev]!;
+		const d1y = py[i]! - py[prev]!;
+
+		const p2x = px[i]! + normals[i]!.nx * paddingPx;
+		const p2y = py[i]! + normals[i]!.ny * paddingPx;
+		const next = (i + 1) % n;
+		const d2x = px[next]! - px[i]!;
+		const d2y = py[next]! - py[i]!;
+
+		const cross = d1x * d2y - d1y * d2x;
+		let newX: number;
+		let newY: number;
+
+		if (Math.abs(cross) < 1e-10) {
+			newX = px[i]! + normals[i]!.nx * paddingPx;
+			newY = py[i]! + normals[i]!.ny * paddingPx;
+		} else {
+			const t = ((p2x - p1x) * d2y - (p2y - p1y) * d2x) / cross;
+			newX = p1x + t * d1x;
+			newY = p1y + t * d1y;
+		}
+
+		result.push({
+			x: Math.max(0, Math.min(1, newX / width)),
+			y: Math.max(0, Math.min(1, newY / height)),
+		});
+	}
+
+	return result;
 }
 
 // --- Ray-based bubble detection ---
@@ -248,21 +323,19 @@ function rayBasedPolygon(
 		}
 	}
 
-	// Apply inner padding.
-	const padded = smoothed.map((d) => Math.max(1, d - INNER_PADDING));
-
-	// Convert to normalized polygon.
+	// Convert to normalized polygon at full ray distance (edge-accurate).
 	const points: Point[] = [];
 	for (let i = 0; i < NUM_RAYS; i++) {
 		const angle = (i / NUM_RAYS) * 2 * Math.PI;
 		points.push({
-			x: Math.max(0, Math.min(1, (clickX + Math.cos(angle) * padded[i]!) / width)),
-			y: Math.max(0, Math.min(1, (clickY + Math.sin(angle) * padded[i]!) / height)),
+			x: Math.max(0, Math.min(1, (clickX + Math.cos(angle) * smoothed[i]!) / width)),
+			y: Math.max(0, Math.min(1, (clickY + Math.sin(angle) * smoothed[i]!) / height)),
 		});
 	}
 
 	const simplified = douglasPeucker(points, DP_TOLERANCE);
-	return simplified.length >= 3 ? simplified : null;
+	if (simplified.length < 3) return null;
+	return insetPolygon(simplified, INNER_PADDING, width, height);
 }
 
 // --- Image loading ---
