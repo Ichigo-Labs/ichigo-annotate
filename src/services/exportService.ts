@@ -62,7 +62,9 @@ export async function exportAsZip(
 	const url = URL.createObjectURL(blob);
 	const a = document.createElement("a");
 	a.href = url;
-	a.download = `annotations-${format}.zip`;
+	const now = new Date();
+	const dateSuffix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}`;
+	a.download = `annotations-${format}-${dateSuffix}.zip`;
 	document.body.appendChild(a);
 	a.click();
 	document.body.removeChild(a);

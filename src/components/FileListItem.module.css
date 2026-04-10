@@ -34,6 +34,13 @@
 	font-size: 13px;
 }
 
+.annotationIcon {
+	color: var(--color-accent);
+	font-size: 10px;
+	flex-shrink: 0;
+	line-height: 1;
+}
+
 .deleteBtn {
 	background: none;
 	border: none;

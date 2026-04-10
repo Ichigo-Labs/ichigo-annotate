@@ -48,12 +48,21 @@ export function FileList({
 		setSidesText(String(polygonizeSides));
 	}, [polygonizeSides]);
 
-	// Filter files by search query.
+	// Filter files by search query, then sort numerically by the first number in the filename.
 	const filtered = searchQuery
 		? files.filter((f) =>
 				f.name.toLowerCase().includes(searchQuery.toLowerCase()),
 			)
 		: files;
+
+	const sorted = [...filtered].sort((a, b) => {
+		const numA = a.name.match(/\d+/);
+		const numB = b.name.match(/\d+/);
+		if (numA && numB) return parseInt(numA[0], 10) - parseInt(numB[0], 10);
+		if (numA) return -1;
+		if (numB) return 1;
+		return a.name.localeCompare(b.name);
+	});
 
 	return (
 		<div className={styles.container} data-testid="file-list">
@@ -69,12 +78,13 @@ export function FileList({
 			/>
 
 			<div className={styles.list}>
-				{filtered.map((file) => (
+				{sorted.map((file) => (
 					<FileListItem
 						key={file.id}
 						name={file.name}
 						thumbnailSrc={file.thumbnailDataUrl}
 						selected={file.id === selectedFileId}
+						hasAnnotations={file.annotations.length > 0}
 						onSelect={() => onSelectFile(file.id)}
 						onDelete={() => onDeleteFile(file.id)}
 					/>
