@@ -5,6 +5,7 @@ import {
 	createInitialState,
 } from "../types/appState";
 import { polygonizeVertices, translatePolygon } from "../utils/areaUtils";
+import { sortFilesByName } from "../utils/fileSort";
 import { loadFullState, saveFiles, savePrefs } from "../services/appStorage";
 
 // --- Reducer (exported for direct testing) ---
@@ -617,24 +618,24 @@ function handleNavigateFile(
 	state: AppState,
 	direction: "forward" | "backward",
 ): AppState {
-	const { files } = state.general;
-	if (files.length === 0) return state;
+	const sorted = sortFilesByName(state.general.files);
+	if (sorted.length === 0) return state;
 
-	const currentIndex = files.findIndex(
+	const currentIndex = sorted.findIndex(
 		(f) => f.id === state.ui.selectedFileId,
 	);
 	let nextIndex: number;
 	if (currentIndex === -1) {
 		nextIndex = 0;
 	} else if (direction === "forward") {
-		nextIndex = (currentIndex + 1) % files.length;
+		nextIndex = (currentIndex + 1) % sorted.length;
 	} else {
-		nextIndex = (currentIndex - 1 + files.length) % files.length;
+		nextIndex = (currentIndex - 1 + sorted.length) % sorted.length;
 	}
 
 	return {
 		...state,
-		ui: { ...state.ui, selectedFileId: files[nextIndex]!.id, selectedAnnotationId: null, annotationUndoStack: [], annotationRedoStack: [] },
+		ui: { ...state.ui, selectedFileId: sorted[nextIndex]!.id, selectedAnnotationId: null, annotationUndoStack: [], annotationRedoStack: [] },
 	};
 }
 

@@ -603,6 +603,31 @@ describe("navigate_file", () => {
 		});
 		expect(next.ui.selectedFileId).toBeNull();
 	});
+
+	it("navigates in sorted order, not insertion order", () => {
+		// Files inserted out of order: img10 before img2
+		const unsorted = [
+			makeFile("f10", "img10.png"),
+			makeFile("f2", "img2.png"),
+			makeFile("f1", "img1.png"),
+		];
+		const state = stateWith({
+			ui: { selectedFileId: "f1" },
+			general: { files: unsorted },
+		});
+		// Sorted order: img1 -> img2 -> img10
+		const next = appReducer(state, {
+			type: "navigate_file",
+			direction: "forward",
+		});
+		expect(next.ui.selectedFileId).toBe("f2");
+
+		const next2 = appReducer(next, {
+			type: "navigate_file",
+			direction: "forward",
+		});
+		expect(next2.ui.selectedFileId).toBe("f10");
+	});
 });
 
 // -- Toasts --

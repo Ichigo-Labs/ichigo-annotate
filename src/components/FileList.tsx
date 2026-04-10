@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ImageFile } from "../types/appState";
+import { sortFilesByName } from "../utils/fileSort";
 import { FileListItem } from "./FileListItem";
 import styles from "./FileList.module.css";
 
@@ -57,14 +58,7 @@ export function FileList({
 			)
 		: files;
 
-	const sorted = [...filtered].sort((a, b) => {
-		const numA = a.name.match(/\d+/);
-		const numB = b.name.match(/\d+/);
-		if (numA && numB) return parseInt(numA[0], 10) - parseInt(numB[0], 10);
-		if (numA) return -1;
-		if (numB) return 1;
-		return a.name.localeCompare(b.name);
-	});
+	const sorted = sortFilesByName(filtered);
 
 	return (
 		<div className={styles.container} data-testid="file-list">
