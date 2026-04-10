@@ -252,6 +252,7 @@ export function App() {
 				<FileList
 					files={filteredFiles}
 					totalFileCount={appState.general.files.length}
+					annotatedFileCount={appState.general.files.filter((f) => f.annotations.length > 0).length}
 					selectedFileId={appState.ui.selectedFileId}
 					searchQuery={appState.ui.searchQuery}
 					lastDeletedFile={appState.general.lastDeletedFile}
