@@ -96,4 +96,39 @@ describe("ImportModal", () => {
 		expect(importedFiles[0]!.name).toBe("img.png");
 		expect(importedFiles[0]!.type).toBe("image/png");
 	});
+
+	it("shows classes.txt found in summary when present without annotations", () => {
+		render(
+			<ImportModal open={true} onImport={vi.fn()} onCancel={vi.fn()} />,
+		);
+		const input = screen.getByTestId("file-input") as HTMLInputElement;
+		const imgFile = new File(["img"], "photo.png", { type: "image/png" });
+		const classesFile = new File(["cat\ndog\n"], "classes.txt", {
+			type: "text/plain",
+		});
+		fireEvent.change(input, { target: { files: [imgFile, classesFile] } });
+		expect(screen.getByTestId("import-summary")).toHaveTextContent(
+			"classes.txt found",
+		);
+	});
+
+	it("does not show classes.txt hint when YOLO format is detected", () => {
+		render(
+			<ImportModal open={true} onImport={vi.fn()} onCancel={vi.fn()} />,
+		);
+		const input = screen.getByTestId("file-input") as HTMLInputElement;
+		const imgFile = new File(["img"], "photo.png", { type: "image/png" });
+		const classesFile = new File(["cat\ndog\n"], "classes.txt", {
+			type: "text/plain",
+		});
+		const annoFile = new File(["0 0.1 0.2 0.3 0.4 0.5 0.6"], "photo.txt", {
+			type: "text/plain",
+		});
+		fireEvent.change(input, {
+			target: { files: [imgFile, classesFile, annoFile] },
+		});
+		const summary = screen.getByTestId("import-summary").textContent ?? "";
+		expect(summary).toContain("YOLO annotations detected");
+		expect(summary).not.toContain("classes.txt found");
+	});
 });

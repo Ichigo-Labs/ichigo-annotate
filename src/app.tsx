@@ -78,7 +78,7 @@ export function App() {
 
 		// Parse annotations if present.
 		let annotationMap = new Map<string, import("./types/appState").Annotation[]>();
-		let newClasses: import("./types/appState").AnnotationClass[] = [];
+		let importClasses: import("./types/appState").AnnotationClass[] = [];
 
 		if (cocoFile) {
 			// COCO format
@@ -88,7 +88,7 @@ export function App() {
 				name: c.name,
 			}));
 			const resolved = resolveClasses(entries, appState.general.classes);
-			newClasses = resolved.newClasses;
+			importClasses = resolved.allClasses;
 			annotationMap = parseCocoAnnotations(cocoData, resolved.classMap);
 		} else if (xmlFiles.size > 0) {
 			// Pascal VOC format
@@ -100,7 +100,7 @@ export function App() {
 			const classNames = collectVocClassNames(xmlContents.values());
 			const entries = classNames.map((name, i) => ({ key: i, name }));
 			const resolved = resolveClasses(entries, appState.general.classes);
-			newClasses = resolved.newClasses;
+			importClasses = resolved.allClasses;
 
 			const classByName = new Map<string, string>();
 			for (const { key, name } of entries) {
@@ -131,7 +131,7 @@ export function App() {
 
 			const entries = classNames.map((name, i) => ({ key: i, name }));
 			const resolved = resolveClasses(entries, appState.general.classes);
-			newClasses = resolved.newClasses;
+			importClasses = resolved.allClasses;
 
 			for (const [base, text] of txtContents) {
 				const anns = parseYoloAnnotation(text, resolved.classMap);
@@ -147,7 +147,7 @@ export function App() {
 			const classNames = collectJsonClassNames(jsonContents.values());
 			const entries = classNames.map((name, i) => ({ key: i, name }));
 			const resolved = resolveClasses(entries, appState.general.classes);
-			newClasses = resolved.newClasses;
+			importClasses = resolved.allClasses;
 
 			const classByName = new Map<string, string>();
 			for (const { key, name } of entries) {
@@ -165,6 +165,20 @@ export function App() {
 					// skip malformed files
 				}
 			}
+		}
+
+		// Use classes.txt to create classes when present alongside non-YOLO
+		// formats or with images only (YOLO branch handles it internally).
+		if (classesFile && txtFiles.size === 0) {
+			const classNames = parseYoloClasses(await classesFile.text());
+			const entries = classNames.map((name, i) => ({ key: i, name }));
+			const allExisting = [...appState.general.classes, ...importClasses];
+			const resolved = resolveClasses(entries, allExisting);
+			const existingIds = new Set(importClasses.map((c) => c.id));
+			importClasses = [
+				...importClasses,
+				...resolved.allClasses.filter((c) => !existingIds.has(c.id)),
+			];
 		}
 
 		// Import images with matched annotations.
@@ -201,7 +215,7 @@ export function App() {
 		dispatch({
 			type: "import_files",
 			files: imported,
-			importClasses: newClasses,
+			importClasses,
 			replace,
 		});
 		dispatch({ type: "remove_toast", id: toastId });

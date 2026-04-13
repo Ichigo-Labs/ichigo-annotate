@@ -23,16 +23,18 @@ describe("resolveClasses", () => {
 	];
 
 	it("reuses existing class by name", () => {
-		const { classMap, newClasses } = resolveClasses(
+		const { classMap, newClasses, allClasses } = resolveClasses(
 			[{ key: 0, name: "cat" }],
 			existing,
 		);
 		expect(classMap.get(0)).toBe("c1");
 		expect(newClasses).toHaveLength(0);
+		expect(allClasses).toHaveLength(1);
+		expect(allClasses[0]!.id).toBe("c1");
 	});
 
 	it("creates new class for unknown name", () => {
-		const { classMap, newClasses } = resolveClasses(
+		const { classMap, newClasses, allClasses } = resolveClasses(
 			[{ key: 0, name: "dog" }],
 			existing,
 		);
@@ -40,10 +42,12 @@ describe("resolveClasses", () => {
 		expect(classMap.get(0)).not.toBe("c1");
 		expect(newClasses).toHaveLength(1);
 		expect(newClasses[0]!.name).toBe("dog");
+		expect(allClasses).toHaveLength(1);
+		expect(allClasses[0]!.name).toBe("dog");
 	});
 
 	it("handles mixed existing and new", () => {
-		const { classMap, newClasses } = resolveClasses(
+		const { classMap, newClasses, allClasses } = resolveClasses(
 			[
 				{ key: 0, name: "cat" },
 				{ key: 1, name: "dog" },
@@ -54,6 +58,8 @@ describe("resolveClasses", () => {
 		expect(newClasses).toHaveLength(1);
 		expect(newClasses[0]!.name).toBe("dog");
 		expect(classMap.get(1)).toBe(newClasses[0]!.id);
+		expect(allClasses).toHaveLength(2);
+		expect(allClasses.map((c) => c.name)).toEqual(["cat", "dog"]);
 	});
 
 	it("skips hidden classes", () => {

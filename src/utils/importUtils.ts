@@ -8,7 +8,11 @@ import { generateDistinctColor } from "./areaUtils";
 export function resolveClasses(
 	entries: { key: number; name: string }[],
 	existingClasses: AnnotationClass[],
-): { classMap: Map<number, string>; newClasses: AnnotationClass[] } {
+): {
+	classMap: Map<number, string>;
+	newClasses: AnnotationClass[];
+	allClasses: AnnotationClass[];
+} {
 	const existingByName = new Map<string, AnnotationClass>();
 	for (const c of existingClasses) {
 		if (!c.hidden) existingByName.set(c.name, c);
@@ -16,12 +20,18 @@ export function resolveClasses(
 
 	const classMap = new Map<number, string>();
 	const newClasses: AnnotationClass[] = [];
+	const allClasses: AnnotationClass[] = [];
 	const usedColors = existingClasses.map((c) => c.color);
+	const seen = new Set<string>();
 
 	for (const { key, name } of entries) {
 		const existing = existingByName.get(name);
 		if (existing) {
 			classMap.set(key, existing.id);
+			if (!seen.has(existing.id)) {
+				seen.add(existing.id);
+				allClasses.push(existing);
+			}
 		} else {
 			const color = generateDistinctColor(usedColors);
 			usedColors.push(color);
@@ -32,11 +42,12 @@ export function resolveClasses(
 			};
 			classMap.set(key, cls.id);
 			newClasses.push(cls);
+			allClasses.push(cls);
 			existingByName.set(name, cls);
 		}
 	}
 
-	return { classMap, newClasses };
+	return { classMap, newClasses, allClasses };
 }
 
 // --- YOLO ---

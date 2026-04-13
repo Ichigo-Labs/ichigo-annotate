@@ -262,15 +262,22 @@ function handleImportFiles(
 	// Merge imported classes with existing ones.
 	let classes: AppState["general"]["classes"];
 	if (replace && importClasses.length > 0) {
-		// Keep default + imported classes only.
-		const ids = new Set(importClasses.map((c) => c.id));
-		const base = state.general.classes.filter(
-			(c) => ids.has(c.id) || c.id === "default-class",
+		// Replace: use imported classes only (discard default-class).
+		classes = [...importClasses];
+	} else if (importClasses.length > 0) {
+		// Append: add imported classes, hide default-class when unused.
+		const existingIds = new Set(state.general.classes.map((c) => c.id));
+		const defaultUsed = state.general.files.some((f) =>
+			f.annotations.some((a) => a.classId === "default-class"),
 		);
-		const newOnes = importClasses.filter(
-			(c) => !base.some((b) => b.id === c.id),
-		);
-		classes = [...base, ...newOnes];
+		classes = [
+			...state.general.classes.map((c) =>
+				c.id === "default-class" && !defaultUsed
+					? { ...c, hidden: true }
+					: c,
+			),
+			...importClasses.filter((c) => !existingIds.has(c.id)),
+		];
 	} else {
 		const existingIds = new Set(state.general.classes.map((c) => c.id));
 		classes = [
@@ -279,11 +286,19 @@ function handleImportFiles(
 		];
 	}
 
+	// If the active class was removed or hidden, switch to the first visible.
+	let activeClassId = state.ui.activeClassId;
+	const visibleClasses = classes.filter((c) => !c.hidden);
+	if (!visibleClasses.some((c) => c.id === activeClassId)) {
+		activeClassId = visibleClasses[0]?.id ?? activeClassId;
+	}
+
 	return {
 		...state,
 		ui: {
 			...state.ui,
 			selectedFileId: newFiles[0]?.id ?? null,
+			activeClassId,
 		},
 		general: {
 			...state.general,

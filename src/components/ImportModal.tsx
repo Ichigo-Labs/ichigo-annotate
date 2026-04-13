@@ -81,6 +81,7 @@ export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 		f.type.startsWith("image/"),
 	).length;
 	const format = detectFormat(selectedFiles);
+	const hasClassesTxt = selectedFiles.some((f) => f.name === "classes.txt");
 
 	const resetInputs = () => {
 		setSelectedFiles([]);
@@ -198,6 +199,9 @@ export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 						{format
 							? ` \u00B7 ${format} annotations detected`
 							: " \u00B7 no annotations detected"}
+						{hasClassesTxt && format !== "YOLO"
+							? " \u00B7 classes.txt found"
+							: ""}
 					</div>
 				)}
 

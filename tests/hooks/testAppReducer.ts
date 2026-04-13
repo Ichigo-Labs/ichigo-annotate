@@ -101,7 +101,7 @@ describe("import_files", () => {
 		expect(next.ui.selectedFileId).toBe("x");
 	});
 
-	it("merges new classes on append", () => {
+	it("merges new classes on append and hides unused default-class", () => {
 		const state = createInitialState();
 		const newClass = { id: "new-cls", name: "tiger", color: "#00ff00" };
 		const next = appReducer(state, {
@@ -111,7 +111,25 @@ describe("import_files", () => {
 			replace: false,
 		});
 		expect(next.general.classes).toHaveLength(2);
+		expect(next.general.classes[0]!.hidden).toBe(true);
 		expect(next.general.classes[1]!.name).toBe("tiger");
+	});
+
+	it("keeps default-class visible on append when annotations use it", () => {
+		const file = makeFile("a", "a.png");
+		file.annotations = [
+			{ id: "ann1", classId: "default-class", vertices: [] },
+		];
+		const state = stateWith({ general: { files: [file] } });
+		const newClass = { id: "new-cls", name: "tiger", color: "#00ff00" };
+		const next = appReducer(state, {
+			type: "import_files",
+			files: [makeFile("x", "x.png")],
+			importClasses: [newClass],
+			replace: false,
+		});
+		const defCls = next.general.classes.find((c) => c.id === "default-class");
+		expect(defCls!.hidden).toBeFalsy();
 	});
 
 	it("does not duplicate existing classes on append", () => {
@@ -125,7 +143,7 @@ describe("import_files", () => {
 		expect(next.general.classes).toHaveLength(1);
 	});
 
-	it("keeps default-class on replace with importClasses", () => {
+	it("removes default-class on replace with importClasses", () => {
 		const state = createInitialState();
 		const newClass = { id: "new-cls", name: "tiger", color: "#00ff00" };
 		const next = appReducer(state, {
@@ -135,8 +153,37 @@ describe("import_files", () => {
 			replace: true,
 		});
 		const names = next.general.classes.map((c) => c.name);
-		expect(names).toContain("default-class");
+		expect(names).not.toContain("default-class");
 		expect(names).toContain("tiger");
+	});
+
+	it("updates activeClassId when default-class is removed on replace", () => {
+		const state = createInitialState();
+		expect(state.ui.activeClassId).toBe("default-class");
+		const newClass = { id: "new-cls", name: "tiger", color: "#00ff00" };
+		const next = appReducer(state, {
+			type: "import_files",
+			files: [makeFile("x", "x.png")],
+			importClasses: [newClass],
+			replace: true,
+		});
+		expect(next.ui.activeClassId).toBe("new-cls");
+	});
+
+	it("keeps all classes on replace when importClasses includes matched existing ones", () => {
+		const existingClass = { id: "cls-1", name: "tiger", color: "#00ff00" };
+		const state = stateWith({ general: { classes: [existingClass] } });
+		const next = appReducer(state, {
+			type: "import_files",
+			files: [makeFile("x", "x.png")],
+			importClasses: [
+				existingClass,
+				{ id: "cls-2", name: "lion", color: "#0000ff" },
+			],
+			replace: true,
+		});
+		const names = next.general.classes.map((c) => c.name);
+		expect(names).toEqual(["tiger", "lion"]);
 	});
 
 	it("works without importClasses (backward compatible)", () => {
