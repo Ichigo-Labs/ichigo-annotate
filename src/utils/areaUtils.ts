@@ -172,29 +172,97 @@ function convexHull(points: Point[]): Point[] {
 	return [...lower, ...upper];
 }
 
+// Hand-picked palette of maximally distinct colors (inspired by Kelly's 22 colors
+// of maximum contrast, filtered for accessibility on light backgrounds).
+const DISTINCT_PALETTE: string[] = [
+	"#e6194b", // red
+	"#3cb44b", // green
+	"#4363d8", // blue
+	"#f58231", // orange
+	"#911eb4", // purple
+	"#42d4f4", // cyan
+	"#f032e6", // magenta
+	"#bfef45", // lime
+	"#fabed4", // pink
+	"#469990", // teal
+	"#dcbeff", // lavender
+	"#9a6324", // brown
+	"#800000", // maroon
+	"#aaffc3", // mint
+	"#808000", // olive
+	"#000075", // navy
+];
+
 // Generate a hex color that is visually distinct from existing colors.
 export function generateDistinctColor(existingColors: string[]): string {
-	const existingHues = existingColors.map(hexToHue);
-	const minGap = 30;
-
-	// Try random hues, pick the one farthest from existing hues.
-	let bestHue = Math.random() * 360;
-	let bestMinDist = 0;
-
-	for (let attempt = 0; attempt < 50; attempt++) {
-		const candidateHue = (attempt * 137.508) % 360; // golden angle spacing
-		const minDist = existingHues.reduce(
-			(min, h) => Math.min(min, hueDifference(candidateHue, h)),
-			360,
-		);
-		if (minDist > bestMinDist) {
-			bestMinDist = minDist;
-			bestHue = candidateHue;
-			if (bestMinDist >= minGap) break;
-		}
+	// Phase 1: Pick from curated palette — choose the entry with maximum
+	// minimum-distance to all existing colors so order stays optimal even
+	// when colors are deleted and re-added.
+	const unused = DISTINCT_PALETTE.filter((c) => !existingColors.includes(c));
+	if (unused.length > 0) {
+		if (existingColors.length === 0) return unused[0]!;
+		const existingHSL = existingColors.map(hexToHSL);
+		return pickFarthest(unused, existingHSL);
 	}
 
-	return hslToHex(bestHue, 65, 55);
+	// Phase 2: Algorithmic fallback — sweep hue × saturation/lightness grid and
+	// pick the combination with the greatest minimum perceptual distance.
+	const existingHSL = existingColors.map(hexToHSL);
+	const SL_TIERS: [number, number][] = [
+		[75, 50],
+		[55, 38],
+		[85, 65],
+		[65, 28],
+		[50, 58],
+		[90, 45],
+	];
+
+	let bestColor = "";
+	let bestMinDist = -1;
+	for (const [sat, lit] of SL_TIERS) {
+		for (let i = 0; i < 72; i++) {
+			const hue = (i * 137.508) % 360; // golden angle
+			const dist = minPerceptualDist(hue, sat, lit, existingHSL);
+			if (dist > bestMinDist) {
+				bestMinDist = dist;
+				bestColor = hslToHex(hue, sat, lit);
+			}
+		}
+	}
+	return bestColor;
+}
+
+function pickFarthest(
+	candidates: string[],
+	existingHSL: [number, number, number][],
+): string {
+	let best = candidates[0]!;
+	let bestDist = -1;
+	for (const c of candidates) {
+		const [h, s, l] = hexToHSL(c);
+		const dist = minPerceptualDist(h, s, l, existingHSL);
+		if (dist > bestDist) {
+			bestDist = dist;
+			best = c;
+		}
+	}
+	return best;
+}
+
+function minPerceptualDist(
+	h: number,
+	s: number,
+	l: number,
+	existing: [number, number, number][],
+): number {
+	return existing.reduce((min, [eh, es, el]) => {
+		const dh = hueDifference(h, eh);
+		const ds = Math.abs(s - es);
+		const dl = Math.abs(l - el);
+		// Hue weighted heavily; sat & lightness provide extra separation
+		const dist = dh * 1.2 + ds * 0.5 + dl * 0.7;
+		return Math.min(min, dist);
+	}, Infinity);
 }
 
 // --- Helpers ---
@@ -204,19 +272,27 @@ function hueDifference(a: number, b: number): number {
 	return d > 180 ? 360 - d : d;
 }
 
-function hexToHue(hex: string): number {
+function hexToHSL(hex: string): [number, number, number] {
 	const r = parseInt(hex.slice(1, 3), 16) / 255;
 	const g = parseInt(hex.slice(3, 5), 16) / 255;
 	const b = parseInt(hex.slice(5, 7), 16) / 255;
 	const max = Math.max(r, g, b);
 	const min = Math.min(r, g, b);
 	const d = max - min;
-	if (d === 0) return 0;
+	const l = ((max + min) / 2) * 100;
+	const s = d === 0 ? 0 : (d / (1 - Math.abs(2 * (l / 100) - 1))) * 100;
 	let h = 0;
-	if (max === r) h = ((g - b) / d + 6) % 6;
-	else if (max === g) h = (b - r) / d + 2;
-	else h = (r - g) / d + 4;
-	return h * 60;
+	if (d !== 0) {
+		if (max === r) h = ((g - b) / d + 6) % 6;
+		else if (max === g) h = (b - r) / d + 2;
+		else h = (r - g) / d + 4;
+		h *= 60;
+	}
+	return [h, s, l];
+}
+
+function hexToHue(hex: string): number {
+	return hexToHSL(hex)[0];
 }
 
 function hslToHex(h: number, s: number, l: number): string {

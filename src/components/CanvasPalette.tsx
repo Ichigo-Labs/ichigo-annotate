@@ -125,7 +125,7 @@ export function CanvasPalette({
 					<div
 						key={cls.id}
 						className={`${styles.pill} ${cls.id === activeClassId ? styles.pillActive : ""}`}
-						style={{ background: `${cls.color}33` }}
+						style={{ background: `${cls.color}40`, borderLeft: `3px solid ${cls.color}` }}
 						onClick={() => onSelectClass(cls.id)}
 						data-testid="class-pill"
 					>
