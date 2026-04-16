@@ -291,10 +291,6 @@ function hexToHSL(hex: string): [number, number, number] {
 	return [h, s, l];
 }
 
-function hexToHue(hex: string): number {
-	return hexToHSL(hex)[0];
-}
-
 function hslToHex(h: number, s: number, l: number): string {
 	const sN = s / 100;
 	const lN = l / 100;
