@@ -6,7 +6,8 @@ import {
 } from "../types/appState";
 import { polygonizeVertices, translatePolygon } from "../utils/areaUtils";
 import { sortFilesByName } from "../utils/fileSort";
-import { loadFullState, saveFiles, savePrefs } from "../services/appStorage";
+import { loadFullState, saveFilesDiff, savePrefs } from "../services/appStorage";
+import type { ImageFile } from "../types/appState";
 
 // --- Reducer (exported for direct testing) ---
 
@@ -656,27 +657,94 @@ function handleNavigateFile(
 
 // --- Hook ---
 
+// Frequent saves: typical debounce, plus a hard ceiling so continuous
+// editing (e.g. dragging a vertex) still flushes to disk regularly.
+const SAVE_DEBOUNCE_MS = 300;
+const SAVE_MAX_WAIT_MS = 2000;
+
 export function useAppReducer(): [AppState, React.Dispatch<AppAction>] {
 	const [state, dispatch] = useReducer(appReducer, null, createInitialState);
 	const hydrated = useRef(false);
+
+	// Track the latest state and last-persisted files for diffed saves.
+	const stateRef = useRef(state);
+	stateRef.current = state;
+	const lastSavedFilesRef = useRef<ImageFile[]>([]);
+
+	// Save the current state — prefs synchronously, files via incremental diff.
+	const flushSave = useRef(() => {
+		const current = stateRef.current;
+		savePrefs(current);
+
+		const prev = lastSavedFilesRef.current;
+		const prevMap = new Map(prev.map((f) => [f.id, f]));
+		const nextFiles = current.general.files;
+		const nextIds = new Set(nextFiles.map((f) => f.id));
+
+		const changed = nextFiles.filter((f) => prevMap.get(f.id) !== f);
+		const deletedIds = prev
+			.filter((f) => !nextIds.has(f.id))
+			.map((f) => f.id);
+
+		lastSavedFilesRef.current = nextFiles;
+		saveFilesDiff(changed, deletedIds);
+	});
 
 	// Hydrate from IndexedDB + localStorage on mount.
 	useEffect(() => {
 		loadFullState().then((loaded) => {
 			dispatch({ type: "hydrate", state: loaded });
+			lastSavedFilesRef.current = loaded.general.files;
 			hydrated.current = true;
 		});
 	}, []);
 
-	// Auto-save on state changes (debounced). Skip until hydrated.
+	// Auto-save on state changes. Debounced for typical edits, but capped by
+	// SAVE_MAX_WAIT_MS so continuous activity still persists frequently.
+	const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const maxWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 	useEffect(() => {
 		if (!hydrated.current) return;
-		const timer = setTimeout(() => {
-			savePrefs(state);
-			saveFiles(state.general.files);
-		}, 500);
-		return () => clearTimeout(timer);
+
+		if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+		debounceTimerRef.current = setTimeout(() => {
+			if (maxWaitTimerRef.current) {
+				clearTimeout(maxWaitTimerRef.current);
+				maxWaitTimerRef.current = null;
+			}
+			flushSave.current();
+		}, SAVE_DEBOUNCE_MS);
+
+		if (!maxWaitTimerRef.current) {
+			maxWaitTimerRef.current = setTimeout(() => {
+				if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+				debounceTimerRef.current = null;
+				maxWaitTimerRef.current = null;
+				flushSave.current();
+			}, SAVE_MAX_WAIT_MS);
+		}
 	}, [state]);
+
+	// Flush pending changes when the tab is closed or hidden so users don't
+	// lose the last few edits on accidental close, refresh, or mobile suspend.
+	useEffect(() => {
+		const flushNow = () => {
+			if (!hydrated.current) return;
+			flushSave.current();
+		};
+		const onVisibility = () => {
+			if (document.visibilityState === "hidden") flushNow();
+		};
+		window.addEventListener("beforeunload", flushNow);
+		window.addEventListener("pagehide", flushNow);
+		document.addEventListener("visibilitychange", onVisibility);
+		return () => {
+			window.removeEventListener("beforeunload", flushNow);
+			window.removeEventListener("pagehide", flushNow);
+			document.removeEventListener("visibilitychange", onVisibility);
+		};
+	}, []);
 
 	return [state, dispatch];
 }

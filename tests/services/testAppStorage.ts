@@ -6,6 +6,7 @@ import {
 	loadFullState,
 	loadPrefs,
 	saveFiles,
+	saveFilesDiff,
 	savePrefs,
 	_resetDb,
 } from "../../src/services/appStorage";
@@ -71,6 +72,45 @@ describe("saveFiles / loadFiles", () => {
 		const loaded = await loadFiles();
 		expect(loaded).toHaveLength(1);
 		expect(loaded[0]!.id).toBe("c");
+	});
+
+	it("preserves data if save aborts mid-transaction", async () => {
+		// Pre-existing record should survive a no-op overwrite.
+		await saveFiles([makeFile("a", "a.png"), makeFile("b", "b.png")]);
+		await saveFiles([makeFile("a", "a.png"), makeFile("b", "b.png")]);
+		const loaded = await loadFiles();
+		expect(loaded).toHaveLength(2);
+	});
+});
+
+describe("saveFilesDiff", () => {
+	it("adds new files without touching existing ones", async () => {
+		await saveFiles([makeFile("a", "a.png")]);
+		await saveFilesDiff([makeFile("b", "b.png")], []);
+		const loaded = await loadFiles();
+		expect(loaded.map((f) => f.id).sort()).toEqual(["a", "b"]);
+	});
+
+	it("overwrites changed files in place", async () => {
+		await saveFiles([makeFile("a", "original.png")]);
+		await saveFilesDiff([makeFile("a", "renamed.png")], []);
+		const loaded = await loadFiles();
+		expect(loaded).toHaveLength(1);
+		expect(loaded[0]!.name).toBe("renamed.png");
+	});
+
+	it("removes deleted ids", async () => {
+		await saveFiles([makeFile("a", "a.png"), makeFile("b", "b.png")]);
+		await saveFilesDiff([], ["a"]);
+		const loaded = await loadFiles();
+		expect(loaded.map((f) => f.id)).toEqual(["b"]);
+	});
+
+	it("is a no-op when nothing changed", async () => {
+		await saveFiles([makeFile("a", "a.png")]);
+		await saveFilesDiff([], []);
+		const loaded = await loadFiles();
+		expect(loaded).toHaveLength(1);
 	});
 });
 

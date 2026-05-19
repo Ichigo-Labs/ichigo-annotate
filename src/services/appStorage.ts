@@ -94,10 +94,36 @@ export async function saveFiles(files: ImageFile[]): Promise<void> {
 	const db = await getDb();
 	const tx = db.transaction(FILES_STORE, "readwrite");
 
-	// Clear existing records then put all current files.
-	await tx.store.clear();
+	// Within a single transaction, replace the entire file set. If the
+	// transaction aborts (tab close, etc.) nothing commits, so existing data
+	// is preserved.
+	const keepIds = new Set(files.map((f) => f.id));
+	const existingKeys = (await tx.store.getAllKeys()) as string[];
+
 	for (const file of files) {
-		await tx.store.put(file);
+		tx.store.put(file);
+	}
+	for (const key of existingKeys) {
+		if (!keepIds.has(key)) tx.store.delete(key);
+	}
+	await tx.done;
+}
+
+// Incremental save: only writes changed files and removes deleted ones.
+// Much cheaper than re-serializing every image's dataUrl on each change,
+// enabling save-on-every-edit without locking up the UI.
+export async function saveFilesDiff(
+	changedFiles: ImageFile[],
+	deletedIds: string[],
+): Promise<void> {
+	if (changedFiles.length === 0 && deletedIds.length === 0) return;
+	const db = await getDb();
+	const tx = db.transaction(FILES_STORE, "readwrite");
+	for (const file of changedFiles) {
+		tx.store.put(file);
+	}
+	for (const id of deletedIds) {
+		tx.store.delete(id);
 	}
 	await tx.done;
 }
