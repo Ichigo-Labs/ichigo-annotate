@@ -27,7 +27,7 @@ export interface ImageFile {
 }
 
 export type ExportFormat = "yolo" | "coco" | "json" | "voc" | "labelme";
-export type CanvasMode = "lasso" | "bucket" | "delete";
+export type CanvasMode = "lasso" | "bucket" | "delete" | "paint";
 
 // --- Toast ---
 

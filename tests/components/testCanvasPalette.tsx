@@ -90,4 +90,17 @@ describe("CanvasPalette", () => {
 		render(<CanvasPalette {...defaultProps} isDraggingAnnotation={false} />);
 		expect(screen.queryByTestId("trash-target")).not.toBeInTheDocument();
 	});
+	it("clicking the paint button calls onModeChange with paint", () => {
+		const onModeChange = vi.fn();
+		render(<CanvasPalette {...defaultProps} onModeChange={onModeChange} />);
+		fireEvent.click(screen.getByTestId("mode-paint"));
+		expect(onModeChange).toHaveBeenCalledWith("paint");
+	});
+
+	it("paint button is highlighted when paint mode is active", () => {
+		render(<CanvasPalette {...defaultProps} canvasMode="paint" />);
+		expect(screen.getByTestId("mode-paint").className).toContain("iconBtnActive");
+		expect(screen.getByTestId("mode-lasso").className).not.toContain("iconBtnActive");
+	});
+
 });

@@ -61,6 +61,7 @@ export function Canvas({
 	const elevatedSvgRef = useRef<SVGSVGElement>(null);
 	const isDrawing = activeLassoPoints !== null;
 	const isDeleteMode = canvasMode === "delete";
+	const isPaintMode = canvasMode === "paint";
 
 	const handleMoveStart = (annotationId: string) => {
 		onLassoCancel();
@@ -116,6 +117,13 @@ export function Canvas({
 		if (canvasMode === "bucket") {
 			onSelectAnnotation(null);
 			onBucketFill(point);
+			return;
+		}
+
+		// Paint mode is tap-to-reclassify on annotations only. Clicks on the
+		// background should not start a lasso draw.
+		if (isPaintMode) {
+			onSelectAnnotation(null);
 			return;
 		}
 
@@ -198,6 +206,7 @@ export function Canvas({
 							isDrawing={isDrawing}
 							isActiveClass={ann.classId === activeClassId}
 							isDeleteMode={isDeleteMode}
+							isPaintMode={isPaintMode}
 							isSelected={false}
 							onMoveStart={handleMoveStart}
 							onMove={onAnnotationMove}
@@ -240,6 +249,7 @@ export function Canvas({
 									isDrawing={isDrawing}
 									isActiveClass={ann.classId === activeClassId}
 									isDeleteMode={isDeleteMode}
+									isPaintMode={isPaintMode}
 									isSelected={true}
 									onMoveStart={handleMoveStart}
 									onMove={onAnnotationMove}

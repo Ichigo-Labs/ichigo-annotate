@@ -357,8 +357,19 @@ export function App() {
 					}}
 					onVertexMoveEnd={() => {}}
 					onSelectAnnotation={(annotationId) => {
-						if (appState.ui.canvasMode === "delete" && annotationId && selectedFile) {
+						if (!annotationId || !selectedFile) {
+							dispatch({ type: "select_annotation", annotationId });
+							return;
+						}
+						if (appState.ui.canvasMode === "delete") {
 							dispatch({ type: "delete_annotation", fileId: selectedFile.id, annotationId });
+						} else if (appState.ui.canvasMode === "paint") {
+							dispatch({
+								type: "change_annotation_class",
+								fileId: selectedFile.id,
+								annotationId,
+								classId: appState.ui.activeClassId,
+							});
 						} else {
 							dispatch({ type: "select_annotation", annotationId });
 						}

@@ -8,6 +8,7 @@ interface AnnotationPolygonProps {
 	isActiveClass: boolean;
 	isSelected: boolean;
 	isDeleteMode: boolean;
+	isPaintMode: boolean;
 	onMoveStart: (annotationId: string) => void;
 	onMove: (annotationId: string, delta: Point) => void;
 	onMoveEnd: (annotationId: string, screenX: number, screenY: number) => void;
@@ -41,6 +42,7 @@ export function AnnotationPolygon({
 	isActiveClass,
 	isSelected,
 	isDeleteMode,
+	isPaintMode,
 	onMoveStart,
 	onMove,
 	onMoveEnd,
@@ -60,7 +62,8 @@ export function AnnotationPolygon({
 	const pointerIdRef = useRef<number | null>(null);
 
 	const handlePolyDown = (e: React.PointerEvent) => {
-		if (isDeleteMode) {
+		// Tap-to-act modes fire onSelect on any annotation, regardless of class.
+		if (isDeleteMode || isPaintMode) {
 			e.stopPropagation();
 			onSelect(annotation.id);
 			return;
@@ -148,11 +151,12 @@ export function AnnotationPolygon({
 		.join(" ");
 
 	const filterId = `glow-${annotation.id}`;
-	const showHandles = isSelected && !isDeleteMode && !isDrawing;
+	const showHandles = isSelected && !isDeleteMode && !isPaintMode && !isDrawing;
+	const isTapMode = isDeleteMode || isPaintMode;
 
 	return (
 		<g
-			style={{ pointerEvents: isDeleteMode ? "auto" : (isDrawing || !isActiveClass ? "none" : "auto") }}
+			style={{ pointerEvents: isTapMode ? "auto" : (isDrawing || !isActiveClass ? "none" : "auto") }}
 			data-testid="annotation-polygon"
 		>
 			{/* Glow filter for selection aura */}
@@ -184,7 +188,7 @@ export function AnnotationPolygon({
 				onPointerDown={handlePolyDown}
 				onPointerMove={handlePolyMove}
 				onPointerUp={handlePolyUp}
-				style={{ cursor: isDeleteMode ? "pointer" : (isDrawing || !isActiveClass ? "default" : "pointer") }}
+				style={{ cursor: isTapMode ? "pointer" : (isDrawing || !isActiveClass ? "default" : "pointer") }}
 			/>
 			{/* Vertex handles for edge editing */}
 			{showHandles && annotation.vertices.map((v, i) => (

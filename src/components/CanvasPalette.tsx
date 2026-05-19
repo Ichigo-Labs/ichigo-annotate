@@ -173,6 +173,21 @@ export function CanvasPalette({
 					</svg>
 				</button>
 				<button
+					className={`${styles.iconBtn} ${canvasMode === "paint" ? styles.iconBtnActive : ""}`}
+					onClick={() => onModeChange("paint")}
+					aria-label="Paint class mode"
+					data-testid="mode-paint"
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+						{/* Brush handle */}
+						<path d="M13.5 2.5l-7 7" />
+						{/* Brush ferrule */}
+						<path d="M12 4l1.5 1.5" />
+						{/* Paint stroke */}
+						<path d="M6.5 9.5c-1.5 0-3 1.2-3 3 0 0 1.5.5 3 0s2-1 2-2-1-1-2-1z" />
+					</svg>
+				</button>
+				<button
 					className={`${styles.iconBtn} ${canvasMode === "bucket" ? styles.iconBtnActive : ""}`}
 					onClick={() => onModeChange("bucket")}
 					aria-label="Bucket fill mode"

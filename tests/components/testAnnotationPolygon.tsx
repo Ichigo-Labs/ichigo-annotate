@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AnnotationPolygon } from "../../src/components/AnnotationPolygon";
 import { useRef } from "react";
@@ -15,8 +15,12 @@ const annotation = {
 
 const noop = vi.fn();
 
+function renderWith(props: Partial<React.ComponentProps<typeof Wrapper>> & { onSelect?: (id: string) => void } = {}) {
+	return render(<Wrapper {...props} />);
+}
+
 // Wrapper to provide an SVG container and ref.
-function Wrapper(props: { isDrawing?: boolean; isSelected?: boolean; isActiveClass?: boolean; isDeleteMode?: boolean }) {
+function Wrapper(props: { isDrawing?: boolean; isSelected?: boolean; isActiveClass?: boolean; isDeleteMode?: boolean; isPaintMode?: boolean; onSelect?: (id: string) => void }) {
 	const svgRef = useRef<SVGSVGElement>(null);
 	return (
 		<svg ref={svgRef} data-testid="test-svg">
@@ -27,10 +31,11 @@ function Wrapper(props: { isDrawing?: boolean; isSelected?: boolean; isActiveCla
 				isActiveClass={props.isActiveClass ?? true}
 				isSelected={props.isSelected ?? false}
 				isDeleteMode={props.isDeleteMode ?? false}
+				isPaintMode={props.isPaintMode ?? false}
 				onMoveStart={noop}
 				onMove={noop}
 				onMoveEnd={noop}
-				onSelect={noop}
+				onSelect={props.onSelect ?? noop}
 				svgRef={svgRef}
 			/>
 		</svg>
@@ -65,4 +70,17 @@ describe("AnnotationPolygon", () => {
 		render(<Wrapper isSelected={false} />);
 		expect(screen.queryByTestId("selection-indicator")).not.toBeInTheDocument();
 	});
+	it("paint mode taps fire onSelect even for non-active classes", () => {
+		const onSelect = vi.fn();
+		renderWith({ isPaintMode: true, isActiveClass: false, onSelect });
+		const polygon = screen.getByTestId("annotation-polygon").querySelector("polygon")!;
+		fireEvent.pointerDown(polygon);
+		expect(onSelect).toHaveBeenCalledWith("a1");
+	});
+
+	it("paint mode does not show vertex handles when selected", () => {
+		renderWith({ isPaintMode: true, isSelected: true });
+		expect(screen.getByTestId("annotation-polygon").querySelectorAll("circle")).toHaveLength(0);
+	});
+
 });
