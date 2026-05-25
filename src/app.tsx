@@ -304,6 +304,7 @@ export function App() {
 					annotations={selectedFile?.annotations ?? []}
 					classes={appState.general.classes}
 					activeLassoPoints={appState.ui.activeLassoPoints}
+					activeRectPoints={appState.ui.activeRectPoints}
 					activeClassId={appState.ui.activeClassId}
 					selectedAnnotationId={appState.ui.selectedAnnotationId}
 					stretchImage={appState.ui.stretchImage}
@@ -318,6 +319,7 @@ export function App() {
 					onLassoComplete={() => dispatch({ type: "complete_lasso" })}
 					onLassoCancel={() => dispatch({ type: "cancel_lasso" })}
 					onBucketFill={handleBucketFill}
+					onRectPoint={(p) => dispatch({ type: "add_rect_point", point: p })}
 					onAnnotationMoveStart={(annotationId) => {
 						setIsDraggingAnnotation(true);
 						dispatch({ type: "push_undo_snapshot" });

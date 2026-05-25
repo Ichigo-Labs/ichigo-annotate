@@ -173,6 +173,20 @@ export function CanvasPalette({
 					</svg>
 				</button>
 				<button
+					className={`${styles.iconBtn} ${canvasMode === "rect" ? styles.iconBtnActive : ""}`}
+					onClick={() => onModeChange("rect")}
+					aria-label="Rectangle mode"
+					data-testid="mode-rect"
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+						<rect x="2" y="4" width="12" height="8" rx="1"/>
+						<circle cx="2" cy="4" r="1.2" fill="currentColor" stroke="none"/>
+						<circle cx="14" cy="4" r="1.2" fill="currentColor" stroke="none"/>
+						<circle cx="14" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+						<circle cx="2" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+					</svg>
+				</button>
+				<button
 					className={`${styles.iconBtn} ${canvasMode === "paint" ? styles.iconBtnActive : ""}`}
 					onClick={() => onModeChange("paint")}
 					aria-label="Paint class mode"

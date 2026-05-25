@@ -9,6 +9,7 @@ interface CanvasProps {
 	annotations: Annotation[];
 	classes: AnnotationClass[];
 	activeLassoPoints: Point[] | null;
+	activeRectPoints: Point[] | null;
 	activeClassId: string;
 	selectedAnnotationId: string | null;
 	stretchImage: boolean;
@@ -19,6 +20,7 @@ interface CanvasProps {
 	onLassoComplete: () => void;
 	onLassoCancel: () => void;
 	onBucketFill: (point: Point) => void;
+	onRectPoint: (point: Point) => void;
 	onAnnotationMoveStart: (annotationId: string) => void;
 	onAnnotationMove: (annotationId: string, delta: Point) => void;
 	onAnnotationMoveEnd: (annotationId: string, droppedOnTrash: boolean) => void;
@@ -38,6 +40,7 @@ export function Canvas({
 	annotations,
 	classes,
 	activeLassoPoints,
+	activeRectPoints,
 	activeClassId,
 	selectedAnnotationId,
 	stretchImage,
@@ -48,6 +51,7 @@ export function Canvas({
 	onLassoComplete,
 	onLassoCancel,
 	onBucketFill,
+	onRectPoint,
 	onAnnotationMoveStart,
 	onAnnotationMove,
 	onAnnotationMoveEnd,
@@ -62,6 +66,7 @@ export function Canvas({
 	const isDrawing = activeLassoPoints !== null;
 	const isDeleteMode = canvasMode === "delete";
 	const isPaintMode = canvasMode === "paint";
+	const isRectMode = canvasMode === "rect";
 
 	const handleMoveStart = (annotationId: string) => {
 		onLassoCancel();
@@ -117,6 +122,12 @@ export function Canvas({
 		if (canvasMode === "bucket") {
 			onSelectAnnotation(null);
 			onBucketFill(point);
+			return;
+		}
+
+		if (isRectMode) {
+			onSelectAnnotation(null);
+			onRectPoint(point);
 			return;
 		}
 
@@ -207,6 +218,7 @@ export function Canvas({
 							isActiveClass={ann.classId === activeClassId}
 							isDeleteMode={isDeleteMode}
 							isPaintMode={isPaintMode}
+							isRectMode={isRectMode}
 							isSelected={false}
 							onMoveStart={handleMoveStart}
 							onMove={onAnnotationMove}
@@ -230,6 +242,43 @@ export function Canvas({
 							data-testid="lasso-line"
 						/>
 					)}
+
+					{/* Rect-in-progress preview */}
+					{activeRectPoints && activeRectPoints.length > 0 && (
+						<>
+							{activeRectPoints.length > 1 && (
+								<polyline
+									points={activeRectPoints.map((p) => `${p.x},${p.y}`).join(" ")}
+									fill="none"
+									stroke={activeColor}
+									strokeWidth={0.003}
+									strokeDasharray="0.008 0.004"
+									data-testid="rect-preview-lines"
+								/>
+							)}
+							{activeRectPoints.length >= 3 && (
+								<line
+									x1={activeRectPoints[activeRectPoints.length - 1]!.x}
+									y1={activeRectPoints[activeRectPoints.length - 1]!.y}
+									x2={activeRectPoints[0]!.x}
+									y2={activeRectPoints[0]!.y}
+									stroke={activeColor}
+									strokeWidth={0.003}
+									strokeDasharray="0.008 0.004"
+								/>
+							)}
+							{activeRectPoints.map((p, i) => (
+								<circle
+									key={i}
+									cx={p.x}
+									cy={p.y}
+									r={0.008}
+									fill={activeColor}
+									data-testid="rect-preview-dot"
+								/>
+							))}
+						</>
+					)}
 				</svg>
 				{/* Elevated overlay for selected annotation (above CanvasPalette) */}
 				{selectedAnnotationId && annotations.find((ann) => ann.id === selectedAnnotationId) && (
@@ -250,6 +299,7 @@ export function Canvas({
 									isActiveClass={ann.classId === activeClassId}
 									isDeleteMode={isDeleteMode}
 									isPaintMode={isPaintMode}
+									isRectMode={isRectMode}
 									isSelected={true}
 									onMoveStart={handleMoveStart}
 									onMove={onAnnotationMove}

@@ -27,7 +27,7 @@ export interface ImageFile {
 }
 
 export type ExportFormat = "yolo" | "coco" | "json" | "voc" | "labelme";
-export type CanvasMode = "lasso" | "bucket" | "delete" | "paint";
+export type CanvasMode = "lasso" | "bucket" | "delete" | "paint" | "rect";
 
 // --- Toast ---
 
@@ -46,6 +46,7 @@ export interface UIState {
 	selectedFileId: string | null;
 	activeClassId: string;
 	activeLassoPoints: Point[] | null;
+	activeRectPoints: Point[] | null;
 	palettePosition: { x: number; y: number };
 	importModalOpen: boolean;
 	exportModalOpen: boolean;
@@ -99,6 +100,8 @@ export type AppAction =
 	| { type: "add_lasso_point"; point: Point }
 	| { type: "complete_lasso" }
 	| { type: "cancel_lasso" }
+	| { type: "add_rect_point"; point: Point }
+	| { type: "cancel_rect" }
 	| { type: "select_annotation"; annotationId: string | null }
 	| { type: "change_annotation_class"; fileId: string; annotationId: string; classId: string }
 	| { type: "delete_annotation"; fileId: string; annotationId: string }
@@ -156,6 +159,7 @@ export function createInitialState(): AppState {
 			selectedFileId: null,
 			activeClassId: DEFAULT_CLASS.id,
 			activeLassoPoints: null,
+			activeRectPoints: null,
 			palettePosition: { x: 16, y: 16 },
 			importModalOpen: false,
 			exportModalOpen: false,

@@ -9,6 +9,7 @@ interface AnnotationPolygonProps {
 	isSelected: boolean;
 	isDeleteMode: boolean;
 	isPaintMode: boolean;
+	isRectMode: boolean;
 	onMoveStart: (annotationId: string) => void;
 	onMove: (annotationId: string, delta: Point) => void;
 	onMoveEnd: (annotationId: string, screenX: number, screenY: number) => void;
@@ -43,6 +44,7 @@ export function AnnotationPolygon({
 	isSelected,
 	isDeleteMode,
 	isPaintMode,
+	isRectMode,
 	onMoveStart,
 	onMove,
 	onMoveEnd,
@@ -156,7 +158,7 @@ export function AnnotationPolygon({
 
 	return (
 		<g
-			style={{ pointerEvents: isTapMode ? "auto" : (isDrawing || !isActiveClass ? "none" : "auto") }}
+			style={{ pointerEvents: isTapMode ? "auto" : (isDrawing || isRectMode || !isActiveClass ? "none" : "auto") }}
 			data-testid="annotation-polygon"
 		>
 			{/* Glow filter for selection aura */}

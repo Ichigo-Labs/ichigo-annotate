@@ -36,7 +36,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 		case "select_file":
 			return {
 				...state,
-				ui: { ...state.ui, selectedFileId: action.fileId, selectedAnnotationId: null, annotationUndoStack: [], annotationRedoStack: [] },
+				ui: { ...state.ui, selectedFileId: action.fileId, selectedAnnotationId: null, annotationUndoStack: [], annotationRedoStack: [], activeRectPoints: null },
 			};
 		case "delete_file":
 			return handleDeleteFile(state, action.fileId);
@@ -101,6 +101,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 			return {
 				...state,
 				ui: { ...state.ui, activeLassoPoints: null },
+			};
+
+		// -- Rect --
+		case "add_rect_point":
+			return handleAddRectPoint(state, action.point);
+		case "cancel_rect":
+			return {
+				...state,
+				ui: { ...state.ui, activeRectPoints: null },
 			};
 
 		// -- Annotation manipulation --
@@ -185,7 +194,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 		case "set_canvas_mode":
 			return {
 				...state,
-				ui: { ...state.ui, canvasMode: action.mode },
+				ui: { ...state.ui, canvasMode: action.mode, activeRectPoints: null },
 			};
 		case "add_annotation":
 			return handleAddAnnotation(pushUndoSnapshot(state), action.vertices);
@@ -411,6 +420,40 @@ function handleCompleteLasso(state: AppState): AppState {
 			...state.general,
 			files: state.general.files.map((f) =>
 				f.id === state.ui.selectedFileId
+					? { ...f, annotations: [...f.annotations, annotation] }
+					: f,
+			),
+		},
+	};
+}
+
+function handleAddRectPoint(state: AppState, point: Point): AppState {
+	const existing = state.ui.activeRectPoints ?? [];
+	const updated = [...existing, point];
+
+	if (updated.length < 4) {
+		return { ...state, ui: { ...state.ui, activeRectPoints: updated } };
+	}
+
+	// 4th point — complete the rectangle.
+	if (!state.ui.selectedFileId) {
+		return { ...state, ui: { ...state.ui, activeRectPoints: null } };
+	}
+
+	const annotation = {
+		id: `ann-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+		classId: state.ui.activeClassId,
+		vertices: updated,
+	};
+
+	const stateWithSnapshot = pushUndoSnapshot(state);
+	return {
+		...stateWithSnapshot,
+		ui: { ...stateWithSnapshot.ui, activeRectPoints: null },
+		general: {
+			...stateWithSnapshot.general,
+			files: stateWithSnapshot.general.files.map((f) =>
+				f.id === stateWithSnapshot.ui.selectedFileId
 					? { ...f, annotations: [...f.annotations, annotation] }
 					: f,
 			),
@@ -651,7 +694,7 @@ function handleNavigateFile(
 
 	return {
 		...state,
-		ui: { ...state.ui, selectedFileId: sorted[nextIndex]!.id, selectedAnnotationId: null, annotationUndoStack: [], annotationRedoStack: [] },
+		ui: { ...state.ui, selectedFileId: sorted[nextIndex]!.id, selectedAnnotationId: null, annotationUndoStack: [], annotationRedoStack: [], activeRectPoints: null },
 	};
 }
 
