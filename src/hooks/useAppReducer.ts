@@ -44,6 +44,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 			return handleUndoDeleteFile(state);
 		case "import_files":
 			return handleImportFiles(state, action.files, action.importClasses ?? [], action.replace);
+		case "patch_file_annotations":
+			return handlePatchFileAnnotations(state, action.patches, action.importClasses);
 
 		// -- Export --
 		case "set_export_format":
@@ -316,6 +318,47 @@ function handleImportFiles(
 			classes,
 			lastDeletedFile: null,
 		},
+	};
+}
+
+function handlePatchFileAnnotations(
+	state: AppState,
+	patches: { fileId: string; annotations: AppState["general"]["files"][number]["annotations"] }[],
+	importClasses: AppState["general"]["classes"],
+): AppState {
+	const patchMap = new Map(patches.map((p) => [p.fileId, p.annotations]));
+
+	const files = state.general.files.map((f) => {
+		const updated = patchMap.get(f.id);
+		return updated !== undefined ? { ...f, annotations: updated } : f;
+	});
+
+	let classes: AppState["general"]["classes"];
+	if (importClasses.length > 0) {
+		const existingIds = new Set(state.general.classes.map((c) => c.id));
+		const defaultUsed = state.general.files.some((f) =>
+			f.annotations.some((a) => a.classId === "default-class"),
+		);
+		classes = [
+			...state.general.classes.map((c) =>
+				c.id === "default-class" && !defaultUsed ? { ...c, hidden: true } : c,
+			),
+			...importClasses.filter((c) => !existingIds.has(c.id)),
+		];
+	} else {
+		classes = state.general.classes;
+	}
+
+	let activeClassId = state.ui.activeClassId;
+	const visibleClasses = classes.filter((c) => !c.hidden);
+	if (!visibleClasses.some((c) => c.id === activeClassId)) {
+		activeClassId = visibleClasses[0]?.id ?? activeClassId;
+	}
+
+	return {
+		...state,
+		ui: { ...state.ui, activeClassId },
+		general: { ...state.general, files, classes },
 	};
 }
 

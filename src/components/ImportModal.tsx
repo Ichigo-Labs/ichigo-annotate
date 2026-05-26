@@ -80,6 +80,10 @@ export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 	const imageCount = selectedFiles.filter((f) =>
 		f.type.startsWith("image/"),
 	).length;
+	const annotationFileCount = selectedFiles.filter(
+		(f) => !f.type.startsWith("image/") && f.name !== "classes.txt",
+	).length;
+	const annotationsOnly = imageCount === 0 && annotationFileCount > 0;
 	const format = detectFormat(selectedFiles);
 	const hasClassesTxt = selectedFiles.some((f) => f.name === "classes.txt");
 
@@ -91,8 +95,8 @@ export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 	};
 
 	const handleDone = () => {
-		if (imageCount === 0) return;
-		onImport(selectedFiles, replace);
+		if (imageCount === 0 && annotationFileCount === 0) return;
+		onImport(selectedFiles, annotationsOnly ? false : replace);
 		resetInputs();
 	};
 
@@ -134,15 +138,17 @@ export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 			<div className={styles.card}>
 				<div className={styles.title}>Import Dataset</div>
 
-				<label className={`${styles.field} ${styles.checkboxRow}`}>
-					<input
-						type="checkbox"
-						checked={replace}
-						onChange={(e) => setReplace(e.target.checked)}
-						data-testid="replace-checkbox"
-					/>
-					Replace current file list?
-				</label>
+				{!annotationsOnly && (
+					<label className={`${styles.field} ${styles.checkboxRow}`}>
+						<input
+							type="checkbox"
+							checked={replace}
+							onChange={(e) => setReplace(e.target.checked)}
+							data-testid="replace-checkbox"
+						/>
+						Replace current file list?
+					</label>
+				)}
 
 				<div className={`${styles.field} ${styles.sourceToggle}`}>
 					<button
@@ -195,13 +201,9 @@ export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 
 				{!extracting && selectedFiles.length > 0 && (
 					<div className={styles.summary} data-testid="import-summary">
-						{imageCount} image{imageCount !== 1 ? "s" : ""} found
-						{format
-							? ` \u00B7 ${format} annotations detected`
-							: " \u00B7 no annotations detected"}
-						{hasClassesTxt && format !== "YOLO"
-							? " \u00B7 classes.txt found"
-							: ""}
+						{annotationsOnly
+							? `${annotationFileCount} annotation file${annotationFileCount !== 1 ? "s" : ""} found \u00B7 ${format} \u00B7 will update matching images`
+							: `${imageCount} image${imageCount !== 1 ? "s" : ""} found${format ? ` \u00B7 ${format} annotations detected` : " \u00B7 no annotations detected"}${hasClassesTxt && format !== "YOLO" ? " \u00B7 classes.txt found" : ""}`}
 					</div>
 				)}
 
@@ -215,7 +217,7 @@ export function ImportModal({ open, onImport, onCancel }: ImportModalProps) {
 					</button>
 					<button
 						className={`${styles.btn} ${styles.btnPrimary}`}
-						disabled={imageCount === 0 || extracting}
+						disabled={(imageCount === 0 && annotationFileCount === 0) || extracting}
 						onClick={handleDone}
 						data-testid="import-done"
 					>

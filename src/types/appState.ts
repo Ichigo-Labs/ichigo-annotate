@@ -88,6 +88,7 @@ export type AppAction =
 	| { type: "delete_file"; fileId: string }
 	| { type: "undo_delete_file" }
 	| { type: "import_files"; files: ImageFile[]; importClasses?: AnnotationClass[]; replace: boolean }
+	| { type: "patch_file_annotations"; patches: { fileId: string; annotations: Annotation[] }[]; importClasses: AnnotationClass[] }
 	| { type: "set_export_format"; format: ExportFormat }
 	| { type: "set_active_class"; classId: string }
 	| { type: "add_class"; name: string; color: string }

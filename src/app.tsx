@@ -181,6 +181,22 @@ export function App() {
 			];
 		}
 
+		// Annotations-only: no images uploaded, patch existing files by basename.
+		if (imageFiles.length === 0) {
+			const patches: { fileId: string; annotations: import("./types/appState").Annotation[] }[] = [];
+			for (const file of appState.general.files) {
+				const baseName = file.name.replace(/\.[^.]+$/, "");
+				const matched = annotationMap.get(baseName);
+				if (matched !== undefined) {
+					patches.push({ fileId: file.id, annotations: matched });
+				}
+			}
+			if (patches.length > 0) {
+				dispatch({ type: "patch_file_annotations", patches, importClasses });
+			}
+			return;
+		}
+
 		// Import images with matched annotations.
 		const toastId = `import-${Date.now()}`;
 		dispatch({
