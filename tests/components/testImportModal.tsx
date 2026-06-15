@@ -112,6 +112,23 @@ describe("ImportModal", () => {
 		);
 	});
 
+	it("detects COCO from the Roboflow _annotations.coco.json convention", () => {
+		render(
+			<ImportModal open={true} onImport={vi.fn()} onCancel={vi.fn()} />,
+		);
+		const input = screen.getByTestId("file-input") as HTMLInputElement;
+		const imgFile = new File(["img"], "photo.png", { type: "image/png" });
+		const cocoFile = new File(
+			['{"images":[],"annotations":[],"categories":[]}'],
+			"_annotations.coco.json",
+			{ type: "application/json" },
+		);
+		fireEvent.change(input, { target: { files: [imgFile, cocoFile] } });
+		expect(screen.getByTestId("import-summary")).toHaveTextContent(
+			"COCO annotations detected",
+		);
+	});
+
 	it("does not show classes.txt hint when YOLO format is detected", () => {
 		render(
 			<ImportModal open={true} onImport={vi.fn()} onCancel={vi.fn()} />,

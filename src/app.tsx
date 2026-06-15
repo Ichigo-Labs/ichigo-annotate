@@ -6,6 +6,7 @@ import {
 	collectJsonClassNames,
 	collectVocClassNames,
 	detectYoloMaxIndex,
+	isCocoFileName,
 	isLabelMeFormat,
 	parseCocoAnnotations,
 	parseJsonAnnotation,
@@ -76,7 +77,7 @@ export function App() {
 				imageFiles.push(file);
 			} else if (file.name === "classes.txt") {
 				classesFile = file;
-			} else if (file.name === "annotations.json") {
+			} else if (isCocoFileName(file.name)) {
 				cocoFile = file;
 			} else if (file.name.endsWith(".txt")) {
 				txtFiles.set(file.name.replace(/\.txt$/, ""), file);

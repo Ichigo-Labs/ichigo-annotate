@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import JSZip from "jszip";
+import { isCocoFileName } from "../utils/importUtils";
 import styles from "./ImportModal.module.css";
 
 interface ImportModalProps {
@@ -36,7 +37,7 @@ function mimeFromName(name: string): string {
 }
 
 function detectFormat(files: File[]): DetectedFormat {
-	if (files.some((f) => f.name === "annotations.json")) return "COCO";
+	if (files.some((f) => isCocoFileName(f.name))) return "COCO";
 	if (files.some((f) => f.name.endsWith(".xml"))) return "VOC";
 	const hasAnnotationTxt = files.some(
 		(f) =>

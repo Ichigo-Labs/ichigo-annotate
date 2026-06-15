@@ -126,6 +126,15 @@ export interface CocoData {
 	attributes?: ({ id?: number; name: string } | string)[];
 }
 
+// Recognize a COCO annotations file by name. Our own export writes
+// "annotations.json"; Roboflow and other COCO exporters use the
+// "<split>_annotations.coco.json" convention (more generally a ".coco.json"
+// suffix). Accept all of these so a single dataset folder imports as COCO.
+export function isCocoFileName(name: string): boolean {
+	const lower = name.toLowerCase();
+	return lower === "annotations.json" || lower.endsWith(".coco.json");
+}
+
 // Normalize an annotation's attribute field to a plain list of names.
 function normalizeAttributes(
 	raw: string[] | Record<string, boolean> | undefined,

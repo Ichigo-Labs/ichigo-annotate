@@ -5,6 +5,7 @@ import {
 	collectJsonClassNames,
 	collectVocClassNames,
 	detectYoloMaxIndex,
+	isCocoFileName,
 	isLabelMeFormat,
 	parseCocoAnnotations,
 	parseJsonAnnotation,
@@ -157,6 +158,27 @@ describe("parseYoloAnnotation", () => {
 });
 
 // --- COCO ---
+
+describe("isCocoFileName", () => {
+	it("recognizes our own annotations.json export", () => {
+		expect(isCocoFileName("annotations.json")).toBe(true);
+	});
+
+	it("recognizes the Roboflow _annotations.coco.json convention", () => {
+		expect(isCocoFileName("_annotations.coco.json")).toBe(true);
+		expect(isCocoFileName("train_annotations.coco.json")).toBe(true);
+	});
+
+	it("recognizes any .coco.json suffix, case-insensitively", () => {
+		expect(isCocoFileName("Dataset.COCO.JSON")).toBe(true);
+	});
+
+	it("rejects unrelated json files", () => {
+		expect(isCocoFileName("photo.json")).toBe(false);
+		expect(isCocoFileName("classes.json")).toBe(false);
+		expect(isCocoFileName("image.png")).toBe(false);
+	});
+});
 
 describe("parseCocoAnnotations", () => {
 	const classMap = new Map([[0, "cat-id"]]);
