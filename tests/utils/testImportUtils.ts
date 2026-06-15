@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AnnotationClass } from "../../src/types/appState";
 import {
+	cocoAttributeNames,
 	collectJsonClassNames,
 	collectVocClassNames,
 	detectYoloMaxIndex,
@@ -503,5 +504,83 @@ describe("isLabelMeFormat", () => {
 
 	it("returns false for null", () => {
 		expect(isLabelMeFormat(null)).toBe(false);
+	});
+});
+
+// --- Attributes ---
+
+describe("attribute import", () => {
+	it("parseCocoAnnotations reads list-form attributes", () => {
+		const data: CocoData = {
+			images: [{ id: 1, file_name: "img.png", width: 100, height: 100 }],
+			annotations: [
+				{
+					image_id: 1,
+					category_id: 0,
+					segmentation: [[10, 10, 50, 10, 50, 50]],
+					attributes: ["italic"],
+				},
+			],
+			categories: [{ id: 0, name: "cat" }],
+		};
+		const map = parseCocoAnnotations(data, new Map([[0, "c1"]]));
+		expect(map.get("img")![0]!.attributes).toEqual(["italic"]);
+	});
+
+	it("parseCocoAnnotations reads dict-form attributes", () => {
+		const data: CocoData = {
+			images: [{ id: 1, file_name: "img.png", width: 100, height: 100 }],
+			annotations: [
+				{
+					image_id: 1,
+					category_id: 0,
+					segmentation: [[10, 10, 50, 10, 50, 50]],
+					attributes: { italic: false, bold: true },
+				},
+			],
+			categories: [{ id: 0, name: "cat" }],
+		};
+		const map = parseCocoAnnotations(data, new Map([[0, "c1"]]));
+		expect(map.get("img")![0]!.attributes).toEqual(["bold"]);
+	});
+
+	it("cocoAttributeNames reads the top-level vocabulary", () => {
+		const data: CocoData = {
+			images: [],
+			annotations: [],
+			categories: [],
+			attributes: [{ id: 1, name: "italic" }, "bold"],
+		};
+		expect(cocoAttributeNames(data)).toEqual(["italic", "bold"]);
+		expect(cocoAttributeNames({ images: [], annotations: [], categories: [] })).toEqual([]);
+	});
+
+	it("parseJsonAnnotation reads attributes", () => {
+		const text = JSON.stringify([
+			{
+				class: "cat",
+				vertices: [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5]],
+				attributes: ["handwritten"],
+			},
+			{ class: "cat", vertices: [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5]] },
+		]);
+		const anns = parseJsonAnnotation(text, new Map([["cat", "c1"]]));
+		expect(anns[0]!.attributes).toEqual(["handwritten"]);
+		expect(anns[1]!.attributes).toBeUndefined();
+	});
+
+	it("parseLabelMeAnnotation turns truthy flags into attributes", () => {
+		const text = JSON.stringify({
+			shapes: [
+				{
+					label: "cat",
+					points: [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5]],
+					shape_type: "polygon",
+					flags: { italic: true, bold: false },
+				},
+			],
+		});
+		const anns = parseLabelMeAnnotation(text, new Map([["cat", "c1"]]));
+		expect(anns[0]!.attributes).toEqual(["italic"]);
 	});
 });

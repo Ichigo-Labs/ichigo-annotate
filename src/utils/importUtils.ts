@@ -109,6 +109,8 @@ interface CocoAnnotation {
 	image_id: number;
 	category_id: number;
 	segmentation: number[][];
+	// Either a list of names (["italic"]) or a { name: bool } map.
+	attributes?: string[] | Record<string, boolean>;
 }
 
 interface CocoCategory {
@@ -120,6 +122,24 @@ export interface CocoData {
 	images: CocoImage[];
 	annotations: CocoAnnotation[];
 	categories: CocoCategory[];
+	// Top-level attribute vocabulary (our COCO export writes it).
+	attributes?: ({ id?: number; name: string } | string)[];
+}
+
+// Normalize an annotation's attribute field to a plain list of names.
+function normalizeAttributes(
+	raw: string[] | Record<string, boolean> | undefined,
+): string[] {
+	if (!raw) return [];
+	if (Array.isArray(raw)) return raw.map(String);
+	return Object.keys(raw).filter((k) => raw[k]);
+}
+
+// Attribute vocabulary declared by a COCO file's top-level "attributes" list.
+export function cocoAttributeNames(data: CocoData): string[] {
+	return (data.attributes ?? [])
+		.map((a) => (typeof a === "string" ? a : a.name))
+		.filter((n): n is string => Boolean(n));
 }
 
 export function parseCocoAnnotations(
@@ -160,11 +180,13 @@ export function parseCocoAnnotations(
 			}
 			if (vertices.length < 3) continue;
 
+			const attributes = normalizeAttributes(ann.attributes);
 			const existing = result.get(baseName) ?? [];
 			existing.push({
 				id: crypto.randomUUID(),
 				classId: classMap.get(ann.category_id) ?? "",
 				vertices,
+				...(attributes.length > 0 ? { attributes } : {}),
 			});
 			result.set(baseName, existing);
 		}
@@ -178,6 +200,7 @@ export function parseCocoAnnotations(
 interface JsonAnnotationEntry {
 	class: string;
 	vertices: [number, number][];
+	attributes?: string[];
 }
 
 export function parseJsonAnnotation(
@@ -187,11 +210,15 @@ export function parseJsonAnnotation(
 	const entries: JsonAnnotationEntry[] = JSON.parse(text);
 	return entries
 		.filter((e) => Array.isArray(e.vertices) && e.vertices.length >= 3)
-		.map((e) => ({
-			id: crypto.randomUUID(),
-			classId: classByName.get(e.class) ?? "",
-			vertices: e.vertices.map(([x, y]) => ({ x, y })),
-		}));
+		.map((e) => {
+			const attributes = normalizeAttributes(e.attributes);
+			return {
+				id: crypto.randomUUID(),
+				classId: classByName.get(e.class) ?? "",
+				vertices: e.vertices.map(([x, y]) => ({ x, y })),
+				...(attributes.length > 0 ? { attributes } : {}),
+			};
+		});
 }
 
 // Collect unique class names from per-image JSON or LabelMe files.
@@ -311,6 +338,7 @@ interface LabelMeShape {
 	label: string;
 	points: [number, number][];
 	shape_type: string;
+	flags?: Record<string, boolean>;
 }
 
 interface LabelMeData {
@@ -329,14 +357,19 @@ export function parseLabelMeAnnotation(
 
 	return data.shapes
 		.filter((s) => s.shape_type === "polygon" && s.points.length >= 3)
-		.map((s) => ({
-			id: crypto.randomUUID(),
-			classId: classByName.get(s.label) ?? "",
-			vertices: s.points.map(([x, y]) => ({
-				x: w > 1 ? x / w : x,
-				y: h > 1 ? y / h : y,
-			})),
-		}));
+		.map((s) => {
+			// Truthy per-shape flags become attribute tags.
+			const attributes = normalizeAttributes(s.flags);
+			return {
+				id: crypto.randomUUID(),
+				classId: classByName.get(s.label) ?? "",
+				vertices: s.points.map(([x, y]) => ({
+					x: w > 1 ? x / w : x,
+					y: h > 1 ? y / h : y,
+				})),
+				...(attributes.length > 0 ? { attributes } : {}),
+			};
+		});
 }
 
 // Detect whether a parsed JSON object is LabelMe format.

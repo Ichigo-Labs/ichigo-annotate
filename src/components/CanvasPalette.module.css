@@ -83,6 +83,64 @@
 	color: var(--color-text);
 }
 
+.attrPills {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+	margin-bottom: 10px;
+	padding-top: 6px;
+	border-top: 1px dashed var(--color-border);
+}
+
+.attrPill {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 7px;
+	border-radius: 12px;
+	cursor: pointer;
+	border: 1px dashed var(--color-border);
+	font-size: 12px;
+	font-style: italic;
+	color: var(--color-text-muted);
+	transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.attrPill:hover {
+	filter: brightness(1.15);
+}
+
+.attrPillOn {
+	border: 1px solid #fff;
+	background: rgba(255, 255, 255, 0.12);
+	color: var(--color-text);
+}
+
+.attrCheck {
+	font-size: 10px;
+	width: 12px;
+	text-align: center;
+	flex-shrink: 0;
+}
+
+.attrAddBtn {
+	background: none;
+	border: 1px dashed var(--color-border);
+	border-radius: 12px;
+	color: var(--color-text-muted);
+	cursor: pointer;
+	font-size: 13px;
+	padding: 2px 8px;
+	line-height: 1.2;
+}
+
+.attrAddBtn:hover {
+	color: var(--color-text);
+	border-color: var(--color-text-muted);
+}
+
 .trashTarget {
 	display: flex;
 	align-items: center;

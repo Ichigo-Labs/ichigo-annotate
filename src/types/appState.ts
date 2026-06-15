@@ -16,6 +16,9 @@ export interface Annotation {
 	id: string;
 	classId: string;
 	vertices: Point[]; // closed polygon, 3+ points
+	// Multi-select style metadata (e.g. "italic"), orthogonal to the class:
+	// a box is exactly one class but any number of attributes.
+	attributes?: string[];
 }
 
 export interface ImageFile {
@@ -56,6 +59,9 @@ export interface UIState {
 	annotationRedoStack: Annotation[][];
 	draggingAnnotationId: string | null;
 	selectedAnnotationId: string | null;
+	// Attributes applied to newly drawn annotations (when no annotation is
+	// selected, the palette toggles operate on this set).
+	activeAttributes: string[];
 	toasts: Toast[];
 }
 
@@ -64,6 +70,8 @@ export interface UIState {
 export interface GeneralState {
 	files: ImageFile[];
 	classes: AnnotationClass[];
+	// Attribute vocabulary shown as toggles in the palette.
+	attributes: string[];
 	exportFormat: ExportFormat;
 	lastDeletedFile: ImageFile | null;
 	polygonize: boolean;
@@ -87,13 +95,16 @@ export type AppAction =
 	| { type: "select_file"; fileId: string }
 	| { type: "delete_file"; fileId: string }
 	| { type: "undo_delete_file" }
-	| { type: "import_files"; files: ImageFile[]; importClasses?: AnnotationClass[]; replace: boolean }
-	| { type: "patch_file_annotations"; patches: { fileId: string; annotations: Annotation[] }[]; importClasses: AnnotationClass[] }
+	| { type: "import_files"; files: ImageFile[]; importClasses?: AnnotationClass[]; importAttributes?: string[]; replace: boolean }
+	| { type: "patch_file_annotations"; patches: { fileId: string; annotations: Annotation[] }[]; importClasses: AnnotationClass[]; importAttributes?: string[] }
 	| { type: "set_export_format"; format: ExportFormat }
 	| { type: "set_active_class"; classId: string }
 	| { type: "add_class"; name: string; color: string }
 	| { type: "delete_class"; classId: string }
 	| { type: "rename_class"; classId: string; name: string }
+	| { type: "toggle_attribute"; name: string }
+	| { type: "add_attribute"; name: string }
+	| { type: "delete_attribute"; name: string }
 	| { type: "set_stretch_image"; enabled: boolean }
 	| { type: "set_polygonize"; enabled: boolean }
 	| { type: "set_polygonize_sides"; sides: number }
@@ -147,6 +158,8 @@ export const DEFAULT_CLASS: AnnotationClass = {
 	color: "#d4856a",
 };
 
+export const DEFAULT_ATTRIBUTES = ["italic", "bold", "handwritten"];
+
 export const SIDEBAR_COLLAPSE_THRESHOLD = 5;
 
 // --- Initial state factory ---
@@ -170,11 +183,13 @@ export function createInitialState(): AppState {
 			annotationRedoStack: [],
 			draggingAnnotationId: null,
 			selectedAnnotationId: null,
+			activeAttributes: [],
 			toasts: [],
 		},
 		general: {
 			files: [],
 			classes: [DEFAULT_CLASS],
+			attributes: [...DEFAULT_ATTRIBUTES],
 			exportFormat: "yolo",
 			lastDeletedFile: null,
 			polygonize: false,

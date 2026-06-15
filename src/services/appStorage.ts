@@ -18,9 +18,11 @@ export interface StoredPrefs {
 		selectedFileId: string | null;
 		searchQuery: string;
 		stretchImage: boolean;
+		activeAttributes?: string[];
 	};
 	general: {
 		classes: AnnotationClass[];
+		attributes?: string[];
 		exportFormat: ExportFormat;
 		polygonize: boolean;
 		polygonizeSides: number;
@@ -63,9 +65,11 @@ export function savePrefs(state: AppState): void {
 			selectedFileId: state.ui.selectedFileId,
 			searchQuery: state.ui.searchQuery,
 			stretchImage: state.ui.stretchImage,
+			activeAttributes: state.ui.activeAttributes,
 		},
 		general: {
 			classes: state.general.classes,
+			attributes: state.general.attributes,
 			exportFormat: state.general.exportFormat,
 			polygonize: state.general.polygonize,
 			polygonizeSides: state.general.polygonizeSides,

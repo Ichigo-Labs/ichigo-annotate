@@ -132,3 +132,92 @@ describe("toLabelMeFormat", () => {
 		expect(result.imageHeight).toBe(1);
 	});
 });
+
+// --- Attributes ---
+
+describe("attribute export", () => {
+	const attrAnnotation: Annotation = {
+		id: "a2",
+		classId: "c1",
+		vertices: [
+			{ x: 0.1, y: 0.2 },
+			{ x: 0.3, y: 0.2 },
+			{ x: 0.3, y: 0.4 },
+		],
+		attributes: ["italic", "handwritten"],
+	};
+	const files: ImageFile[] = [
+		{
+			id: "f1",
+			name: "img1.png",
+			dataUrl: "",
+			thumbnailDataUrl: "",
+			annotations: [attrAnnotation, annotation],
+		},
+	];
+
+	it("JSON format includes attributes per annotation", () => {
+		const parsed = JSON.parse(toJsonFormat([attrAnnotation, annotation], classes));
+		expect(parsed[0].attributes).toEqual(["italic", "handwritten"]);
+		expect(parsed[1].attributes).toEqual([]);
+	});
+
+	it("COCO format declares the vocabulary and per-annotation attributes", () => {
+		const coco = toCocoFormat(files, classes, ["italic", "bold", "handwritten"]) as {
+			attributes: { id: number; name: string }[];
+			annotations: { attributes: string[] }[];
+		};
+		expect(coco.attributes).toEqual([
+			{ id: 1, name: "italic" },
+			{ id: 2, name: "bold" },
+			{ id: 3, name: "handwritten" },
+		]);
+		expect(coco.annotations[0]!.attributes).toEqual(["italic", "handwritten"]);
+		expect(coco.annotations[1]!.attributes).toEqual([]);
+	});
+
+	it("COCO format scales to pixels when image dims are known", () => {
+		const dims = new Map([["f1", { w: 200, h: 100 }]]);
+		const coco = toCocoFormat(files, classes, [], dims) as {
+			images: { width?: number; height?: number }[];
+			annotations: { bbox: number[]; segmentation: number[][]; area: number }[];
+		};
+		expect(coco.images[0]).toMatchObject({ width: 200, height: 100 });
+		expect(coco.annotations[0]!.bbox).toEqual([
+			0.1 * 200,
+			0.2 * 100,
+			0.2 * 200,
+			0.2 * 100,
+		]);
+		expect(coco.annotations[0]!.segmentation[0]).toEqual([
+			0.1 * 200, 0.2 * 100,
+			0.3 * 200, 0.2 * 100,
+			0.3 * 200, 0.4 * 100,
+		]);
+		expect(coco.annotations[0]!.area).toBeCloseTo(0.2 * 200 * 0.2 * 100);
+	});
+
+	it("COCO format stays normalized without dims", () => {
+		const coco = toCocoFormat(files, classes) as {
+			images: { width?: number }[];
+			annotations: { bbox: number[] }[];
+		};
+		expect(coco.images[0]!.width).toBeUndefined();
+		expect(coco.annotations[0]!.bbox[0]).toBeCloseTo(0.1);
+	});
+
+	it("LabelMe format writes vocabulary flags with per-shape state", () => {
+		const parsed = JSON.parse(
+			toLabelMeFormat("img1.png", [attrAnnotation, annotation], classes, [
+				"italic",
+				"bold",
+			]),
+		);
+		expect(parsed.shapes[0].flags).toEqual({
+			italic: true,
+			bold: false,
+			handwritten: true, // on the annotation even though not in the vocab
+		});
+		expect(parsed.shapes[1].flags).toEqual({ italic: false, bold: false });
+	});
+});

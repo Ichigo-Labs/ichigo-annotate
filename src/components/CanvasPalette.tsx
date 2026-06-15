@@ -6,6 +6,11 @@ import styles from "./CanvasPalette.module.css";
 interface CanvasPaletteProps {
 	classes: AnnotationClass[];
 	activeClassId: string;
+	// Attribute vocabulary plus the set currently shown as enabled — the
+	// selected annotation's attributes, or the new-annotation defaults.
+	attributes: string[];
+	enabledAttributes: string[];
+	attributeTarget: "annotation" | "default";
 	canvasMode: CanvasMode;
 	canUndo: boolean;
 	canRedo: boolean;
@@ -15,6 +20,9 @@ interface CanvasPaletteProps {
 	onSelectClass: (classId: string) => void;
 	onDeleteClass: (classId: string) => void;
 	onAddClass: (name: string, color: string) => void;
+	onToggleAttribute: (name: string) => void;
+	onAddAttribute: (name: string) => void;
+	onDeleteAttribute: (name: string) => void;
 	onModeChange: (mode: CanvasMode) => void;
 	onUndo: () => void;
 	onRedo: () => void;
@@ -25,6 +33,9 @@ interface CanvasPaletteProps {
 export function CanvasPalette({
 	classes,
 	activeClassId,
+	attributes,
+	enabledAttributes,
+	attributeTarget,
 	canvasMode,
 	canUndo,
 	canRedo,
@@ -34,6 +45,9 @@ export function CanvasPalette({
 	onSelectClass,
 	onDeleteClass,
 	onAddClass,
+	onToggleAttribute,
+	onAddAttribute,
+	onDeleteAttribute,
 	onModeChange,
 	onUndo,
 	onRedo,
@@ -42,6 +56,8 @@ export function CanvasPalette({
 }: CanvasPaletteProps) {
 	const [adding, setAdding] = useState(false);
 	const [newName, setNewName] = useState("");
+	const [addingAttr, setAddingAttr] = useState(false);
+	const [newAttrName, setNewAttrName] = useState("");
 	const dragRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null);
 	const paletteRef = useRef<HTMLDivElement>(null);
 
@@ -101,6 +117,16 @@ export function CanvasPalette({
 		setAdding(false);
 	};
 
+	// -- Add attribute --
+
+	const handleAddAttrConfirm = () => {
+		const trimmed = newAttrName.trim();
+		if (!trimmed) return;
+		onAddAttribute(trimmed);
+		setNewAttrName("");
+		setAddingAttr(false);
+	};
+
 	return (
 		<div
 			ref={paletteRef}
@@ -146,6 +172,77 @@ export function CanvasPalette({
 						</button>
 					</div>
 				))}
+			</div>
+
+			{/* Attribute toggles — multi-select style metadata (italic, bold, ...).
+			    With an annotation selected they edit that annotation; otherwise
+			    they set the defaults applied to newly drawn annotations. */}
+			<div
+				className={styles.attrPills}
+				data-testid="attr-pills"
+				title={
+					attributeTarget === "annotation"
+						? "Style attributes of the selected box"
+						: "Style attributes applied to newly drawn boxes"
+				}
+			>
+				{attributes.map((name) => {
+					const on = enabledAttributes.includes(name);
+					return (
+						<div
+							key={name}
+							className={`${styles.attrPill} ${on ? styles.attrPillOn : ""}`}
+							onClick={() => onToggleAttribute(name)}
+							data-testid="attr-pill"
+							data-attr-on={on ? "true" : "false"}
+						>
+							<span className={styles.attrCheck}>{on ? "✓" : "○"}</span>
+							<span className={styles.pillName}>{name}</span>
+							<button
+								className={styles.pillDelete}
+								onClick={(e) => {
+									e.stopPropagation();
+									onDeleteAttribute(name);
+								}}
+								aria-label={`Delete attribute ${name}`}
+							>
+								×
+							</button>
+						</div>
+					);
+				})}
+				{addingAttr ? (
+					<input
+						className={styles.newClassInput}
+						autoFocus
+						value={newAttrName}
+						placeholder="Attribute..."
+						onChange={(e) => setNewAttrName(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter") handleAddAttrConfirm();
+							if (e.key === "Escape") {
+								setAddingAttr(false);
+								setNewAttrName("");
+							}
+						}}
+						onBlur={() => {
+							if (!newAttrName.trim()) {
+								setAddingAttr(false);
+								setNewAttrName("");
+							}
+						}}
+						data-testid="new-attr-input"
+					/>
+				) : (
+					<button
+						className={styles.attrAddBtn}
+						onClick={() => setAddingAttr(true)}
+						aria-label="Add attribute"
+						data-testid="add-attr-btn"
+					>
+						+
+					</button>
+				)}
 			</div>
 
 			{/* Trash drop target — visible while dragging an annotation */}

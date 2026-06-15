@@ -733,3 +733,105 @@ describe("modal actions", () => {
 		expect(closed.ui.exportModalOpen).toBe(false);
 	});
 });
+
+// -- Attributes --
+
+describe("attributes", () => {
+	const fileWithAnn = (): ImageFile => ({
+		id: "f1",
+		name: "img.png",
+		dataUrl: "",
+		thumbnailDataUrl: "",
+		annotations: [
+			{
+				id: "a1",
+				classId: "default-class",
+				vertices: [
+					{ x: 0.1, y: 0.1 },
+					{ x: 0.5, y: 0.1 },
+					{ x: 0.5, y: 0.5 },
+				],
+			},
+		],
+	});
+
+	it("toggle_attribute with no selection toggles the active set", () => {
+		const state = createInitialState();
+		const on = appReducer(state, { type: "toggle_attribute", name: "italic" });
+		expect(on.ui.activeAttributes).toEqual(["italic"]);
+		const off = appReducer(on, { type: "toggle_attribute", name: "italic" });
+		expect(off.ui.activeAttributes).toEqual([]);
+	});
+
+	it("toggle_attribute with a selected annotation edits that annotation and is undoable", () => {
+		const state = stateWith({
+			ui: { selectedFileId: "f1", selectedAnnotationId: "a1" },
+			general: { files: [fileWithAnn()] },
+		});
+		const next = appReducer(state, { type: "toggle_attribute", name: "bold" });
+		expect(next.general.files[0]!.annotations[0]!.attributes).toEqual(["bold"]);
+		expect(next.ui.activeAttributes).toEqual([]);
+		expect(next.ui.annotationUndoStack).toHaveLength(1);
+
+		const undone = appReducer(next, { type: "undo_annotation" });
+		expect(undone.general.files[0]!.annotations[0]!.attributes).toBeUndefined();
+	});
+
+	it("add_attribute appends unique trimmed names", () => {
+		const state = createInitialState();
+		const next = appReducer(state, { type: "add_attribute", name: "  tiny  " });
+		expect(next.general.attributes).toContain("tiny");
+		const dup = appReducer(next, { type: "add_attribute", name: "tiny" });
+		expect(dup.general.attributes.filter((n) => n === "tiny")).toHaveLength(1);
+	});
+
+	it("delete_attribute strips it from vocab, active set, and annotations", () => {
+		const file = fileWithAnn();
+		file.annotations[0]!.attributes = ["italic", "bold"];
+		const state = stateWith({
+			ui: { activeAttributes: ["italic"] },
+			general: { files: [file] },
+		});
+		const next = appReducer(state, { type: "delete_attribute", name: "italic" });
+		expect(next.general.attributes).not.toContain("italic");
+		expect(next.ui.activeAttributes).toEqual([]);
+		expect(next.general.files[0]!.annotations[0]!.attributes).toEqual(["bold"]);
+	});
+
+	it("new annotations inherit the active attribute set", () => {
+		const state = stateWith({
+			ui: {
+				selectedFileId: "f1",
+				activeAttributes: ["italic"],
+			},
+			general: { files: [fileWithAnn()] },
+		});
+		const next = appReducer(state, {
+			type: "add_annotation",
+			vertices: [
+				{ x: 0.2, y: 0.2 },
+				{ x: 0.6, y: 0.2 },
+				{ x: 0.6, y: 0.6 },
+			],
+		});
+		const anns = next.general.files[0]!.annotations;
+		expect(anns[anns.length - 1]!.attributes).toEqual(["italic"]);
+	});
+
+	it("import_files merges imported attribute names into the vocabulary", () => {
+		const state = createInitialState();
+		const next = appReducer(state, {
+			type: "import_files",
+			files: [fileWithAnn()],
+			importClasses: [],
+			importAttributes: ["italic", "sparkle"],
+			replace: false,
+		});
+		expect(next.general.attributes).toEqual([
+			"italic",
+			"bold",
+			"handwritten",
+			"sparkle",
+		]);
+	});
+});

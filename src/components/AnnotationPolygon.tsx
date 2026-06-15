@@ -191,7 +191,12 @@ export function AnnotationPolygon({
 				onPointerMove={handlePolyMove}
 				onPointerUp={handlePolyUp}
 				style={{ cursor: isTapMode ? "pointer" : (isDrawing || !isActiveClass ? "default" : "pointer") }}
-			/>
+			>
+				{/* Native tooltip listing style attributes on hover */}
+				{(annotation.attributes?.length ?? 0) > 0 && (
+					<title>{annotation.attributes!.join(", ")}</title>
+				)}
+			</polygon>
 			{/* Vertex handles for edge editing */}
 			{showHandles && annotation.vertices.map((v, i) => (
 				<circle

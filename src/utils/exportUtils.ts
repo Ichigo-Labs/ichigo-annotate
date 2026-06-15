@@ -24,7 +24,7 @@ export function toYoloFormat(
 		.join("\n");
 }
 
-// Per-image JSON: array of { class, vertices } objects.
+// Per-image JSON: array of { class, vertices, attributes } objects.
 export function toJsonFormat(
 	annotations: Annotation[],
 	classes: AnnotationClass[],
@@ -37,16 +37,24 @@ export function toJsonFormat(
 				parseFloat(v.x.toFixed(6)),
 				parseFloat(v.y.toFixed(6)),
 			]),
+			attributes: ann.attributes ?? [],
 		})),
 		null,
 		2,
 	);
 }
 
-// Build a COCO-format JSON object.
+// Build a COCO-format JSON object. When image pixel dimensions are provided
+// (keyed by file id), coordinates are emitted in absolute pixels and images
+// carry width/height — the format rfdetr-style trainers consume directly;
+// otherwise coordinates stay normalized 0–1 as before. The attribute
+// vocabulary is declared top-level (its order fixes a model head's outputs)
+// and each annotation lists its attribute names.
 export function toCocoFormat(
 	files: ImageFile[],
 	classes: AnnotationClass[],
+	attributes: string[] = [],
+	imageDims?: Map<string, { w: number; h: number }>,
 ): object {
 	const categories = classes.map((c, i) => ({
 		id: i,
@@ -60,14 +68,18 @@ export function toCocoFormat(
 
 	for (let imgIdx = 0; imgIdx < files.length; imgIdx++) {
 		const file = files[imgIdx]!;
+		const dims = imageDims?.get(file.id);
 		images.push({
 			id: imgIdx,
 			file_name: file.name,
+			...(dims ? { width: dims.w, height: dims.h } : {}),
 		});
 
+		const sx = dims?.w ?? 1;
+		const sy = dims?.h ?? 1;
 		for (const ann of file.annotations) {
 			const bbox = polygonBoundingBox(ann.vertices);
-			const segmentation = ann.vertices.flatMap((v) => [v.x, v.y]);
+			const segmentation = ann.vertices.flatMap((v) => [v.x * sx, v.y * sy]);
 
 			annotations.push({
 				id: annotationId++,
@@ -75,17 +87,23 @@ export function toCocoFormat(
 				category_id: classIndex.get(ann.classId) ?? 0,
 				segmentation: [segmentation],
 				bbox: [
-					bbox.minX,
-					bbox.minY,
-					bbox.maxX - bbox.minX,
-					bbox.maxY - bbox.minY,
+					bbox.minX * sx,
+					bbox.minY * sy,
+					(bbox.maxX - bbox.minX) * sx,
+					(bbox.maxY - bbox.minY) * sy,
 				],
-				area: (bbox.maxX - bbox.minX) * (bbox.maxY - bbox.minY),
+				area: (bbox.maxX - bbox.minX) * sx * ((bbox.maxY - bbox.minY) * sy),
+				attributes: ann.attributes ?? [],
 			});
 		}
 	}
 
-	return { images, annotations, categories };
+	return {
+		attributes: attributes.map((name, i) => ({ id: i + 1, name })),
+		images,
+		annotations,
+		categories,
+	};
 }
 
 // --- Pascal VOC (XML per image) ---
@@ -142,6 +160,7 @@ export function toLabelMeFormat(
 	fileName: string,
 	annotations: Annotation[],
 	classes: AnnotationClass[],
+	attributes: string[] = [],
 ): string {
 	const classById = new Map(classes.map((c) => [c.id, c.name]));
 	return JSON.stringify(
@@ -155,7 +174,13 @@ export function toLabelMeFormat(
 					parseFloat(v.y.toFixed(6)),
 				]),
 				shape_type: "polygon",
-				flags: {},
+				// Attribute tags ride in LabelMe's per-shape flags: every
+				// vocabulary entry appears with its boolean state.
+				flags: Object.fromEntries(
+					[...new Set([...attributes, ...(ann.attributes ?? [])])].map(
+						(name) => [name, ann.attributes?.includes(name) ?? false],
+					),
+				),
 			})),
 			imagePath: fileName,
 			imageHeight: 1,

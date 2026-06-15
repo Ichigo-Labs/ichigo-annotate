@@ -43,9 +43,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 		case "undo_delete_file":
 			return handleUndoDeleteFile(state);
 		case "import_files":
-			return handleImportFiles(state, action.files, action.importClasses ?? [], action.replace);
+			return handleImportFiles(state, action.files, action.importClasses ?? [], action.importAttributes ?? [], action.replace);
 		case "patch_file_annotations":
-			return handlePatchFileAnnotations(state, action.patches, action.importClasses);
+			return handlePatchFileAnnotations(state, action.patches, action.importClasses, action.importAttributes ?? []);
 
 		// -- Export --
 		case "set_export_format":
@@ -66,6 +66,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 			return handleDeleteClass(state, action.classId);
 		case "rename_class":
 			return handleRenameClass(state, action.classId, action.name);
+
+		// -- Attributes --
+		case "toggle_attribute":
+			return handleToggleAttribute(state, action.name);
+		case "add_attribute":
+			return handleAddAttribute(state, action.name);
+		case "delete_attribute":
+			return handleDeleteAttribute(state, action.name);
 
 		// -- Stretch --
 		case "set_stretch_image":
@@ -263,10 +271,16 @@ function handleUndoDeleteFile(state: AppState): AppState {
 	};
 }
 
+function mergeAttributes(existing: string[], imported: string[]): string[] {
+	const added = imported.filter((n) => !existing.includes(n));
+	return added.length > 0 ? [...existing, ...added] : existing;
+}
+
 function handleImportFiles(
 	state: AppState,
 	files: AppState["general"]["files"],
 	importClasses: AppState["general"]["classes"],
+	importAttributes: string[],
 	replace: boolean,
 ): AppState {
 	const newFiles = replace ? files : [...state.general.files, ...files];
@@ -316,6 +330,7 @@ function handleImportFiles(
 			...state.general,
 			files: newFiles,
 			classes,
+			attributes: mergeAttributes(state.general.attributes, importAttributes),
 			lastDeletedFile: null,
 		},
 	};
@@ -325,6 +340,7 @@ function handlePatchFileAnnotations(
 	state: AppState,
 	patches: { fileId: string; annotations: AppState["general"]["files"][number]["annotations"] }[],
 	importClasses: AppState["general"]["classes"],
+	importAttributes: string[],
 ): AppState {
 	const patchMap = new Map(patches.map((p) => [p.fileId, p.annotations]));
 
@@ -358,7 +374,12 @@ function handlePatchFileAnnotations(
 	return {
 		...state,
 		ui: { ...state.ui, activeClassId },
-		general: { ...state.general, files, classes },
+		general: {
+			...state.general,
+			files,
+			classes,
+			attributes: mergeAttributes(state.general.attributes, importAttributes),
+		},
 	};
 }
 
@@ -428,6 +449,86 @@ function handleRenameClass(
 	};
 }
 
+// --- Attributes ---
+
+function toggleInList(list: string[], name: string): string[] {
+	return list.includes(name) ? list.filter((n) => n !== name) : [...list, name];
+}
+
+// With an annotation selected, toggles the attribute on that annotation
+// (undoable); otherwise toggles the default set applied to new annotations.
+function handleToggleAttribute(state: AppState, name: string): AppState {
+	const { selectedAnnotationId, selectedFileId } = state.ui;
+	if (selectedAnnotationId && selectedFileId) {
+		const snapshotted = pushUndoSnapshot(state);
+		return {
+			...snapshotted,
+			general: {
+				...snapshotted.general,
+				files: snapshotted.general.files.map((f) =>
+					f.id === selectedFileId
+						? {
+								...f,
+								annotations: f.annotations.map((a) =>
+									a.id === selectedAnnotationId
+										? { ...a, attributes: toggleInList(a.attributes ?? [], name) }
+										: a,
+								),
+							}
+						: f,
+				),
+			},
+		};
+	}
+	return {
+		...state,
+		ui: {
+			...state.ui,
+			activeAttributes: toggleInList(state.ui.activeAttributes, name),
+		},
+	};
+}
+
+function handleAddAttribute(state: AppState, name: string): AppState {
+	const trimmed = name.trim();
+	if (!trimmed || state.general.attributes.includes(trimmed)) return state;
+	return {
+		...state,
+		general: {
+			...state.general,
+			attributes: [...state.general.attributes, trimmed],
+		},
+	};
+}
+
+// Removes the attribute from the vocabulary, the active set, and every
+// annotation across all files (kept tags would silently re-enter exports).
+function handleDeleteAttribute(state: AppState, name: string): AppState {
+	const stripAnnotations = (file: AppState["general"]["files"][number]) => {
+		if (!file.annotations.some((a) => a.attributes?.includes(name))) return file;
+		return {
+			...file,
+			annotations: file.annotations.map((a) =>
+				a.attributes?.includes(name)
+					? { ...a, attributes: a.attributes.filter((n) => n !== name) }
+					: a,
+			),
+		};
+	};
+	return {
+		...state,
+		ui: {
+			...state.ui,
+			activeAttributes: state.ui.activeAttributes.filter((n) => n !== name),
+		},
+		general: {
+			...state.general,
+			attributes: state.general.attributes.filter((n) => n !== name),
+			files: state.general.files.map(stripAnnotations),
+		},
+	};
+}
+
 function handleAddLassoPoint(state: AppState, point: Point): AppState {
 	if (!state.ui.activeLassoPoints) return state;
 	return {
@@ -454,6 +555,9 @@ function handleCompleteLasso(state: AppState): AppState {
 		id: `ann-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
 		classId: state.ui.activeClassId,
 		vertices: finalVertices,
+		...(state.ui.activeAttributes.length > 0
+			? { attributes: [...state.ui.activeAttributes] }
+			: {}),
 	};
 
 	return {
@@ -487,6 +591,9 @@ function handleAddRectPoint(state: AppState, point: Point): AppState {
 		id: `ann-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
 		classId: state.ui.activeClassId,
 		vertices: updated,
+		...(state.ui.activeAttributes.length > 0
+			? { attributes: [...state.ui.activeAttributes] }
+			: {}),
 	};
 
 	const stateWithSnapshot = pushUndoSnapshot(state);
@@ -701,6 +808,9 @@ function handleAddAnnotation(state: AppState, vertices: Point[]): AppState {
 		id: `ann-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
 		classId: state.ui.activeClassId,
 		vertices,
+		...(state.ui.activeAttributes.length > 0
+			? { attributes: [...state.ui.activeAttributes] }
+			: {}),
 	};
 
 	return {

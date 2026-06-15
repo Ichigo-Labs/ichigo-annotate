@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useAppReducer } from "./hooks/useAppReducer";
 import { createImageFile } from "./utils/imageUtils";
 import {
+	cocoAttributeNames,
 	collectJsonClassNames,
 	collectVocClassNames,
 	detectYoloMaxIndex,
@@ -47,6 +48,16 @@ export function App() {
 		(f) => f.id === appState.ui.selectedFileId,
 	);
 
+	const selectedAnnotation = selectedFile?.annotations.find(
+		(a) => a.id === appState.ui.selectedAnnotationId,
+	);
+
+	// Attribute pills show the selected annotation's attributes when one is
+	// selected, otherwise the defaults applied to newly drawn annotations.
+	const enabledAttributes = selectedAnnotation
+		? (selectedAnnotation.attributes ?? [])
+		: appState.ui.activeAttributes;
+
 	// -- Handlers --
 
 	const handleImport = async (rawFiles: File[], replace: boolean) => {
@@ -79,10 +90,12 @@ export function App() {
 		// Parse annotations if present.
 		let annotationMap = new Map<string, import("./types/appState").Annotation[]>();
 		let importClasses: import("./types/appState").AnnotationClass[] = [];
+		let importAttributes: string[] = [];
 
 		if (cocoFile) {
 			// COCO format
 			const cocoData: CocoData = JSON.parse(await cocoFile.text());
+			importAttributes = cocoAttributeNames(cocoData);
 			const entries = cocoData.categories.map((c) => ({
 				key: c.id,
 				name: c.name,
@@ -181,6 +194,18 @@ export function App() {
 			];
 		}
 
+		// Merge attribute names found on parsed annotations (JSON/LabelMe/COCO
+		// per-annotation fields) into the imported vocabulary.
+		{
+			const attrSet = new Set(importAttributes);
+			for (const anns of annotationMap.values()) {
+				for (const ann of anns) {
+					for (const name of ann.attributes ?? []) attrSet.add(name);
+				}
+			}
+			importAttributes = [...attrSet];
+		}
+
 		// Annotations-only: no images uploaded, patch existing files by basename.
 		if (imageFiles.length === 0) {
 			const patches: { fileId: string; annotations: import("./types/appState").Annotation[] }[] = [];
@@ -192,7 +217,7 @@ export function App() {
 				}
 			}
 			if (patches.length > 0) {
-				dispatch({ type: "patch_file_annotations", patches, importClasses });
+				dispatch({ type: "patch_file_annotations", patches, importClasses, importAttributes });
 			}
 			return;
 		}
@@ -232,6 +257,7 @@ export function App() {
 			type: "import_files",
 			files: imported,
 			importClasses,
+			importAttributes,
 			replace,
 		});
 		dispatch({ type: "remove_toast", id: toastId });
@@ -243,6 +269,7 @@ export function App() {
 			appState.general.files,
 			appState.general.classes,
 			appState.general.exportFormat,
+			appState.general.attributes,
 		);
 	};
 
@@ -399,6 +426,9 @@ export function App() {
 				<CanvasPalette
 					classes={appState.general.classes}
 					activeClassId={appState.ui.activeClassId}
+					attributes={appState.general.attributes}
+					enabledAttributes={enabledAttributes}
+					attributeTarget={selectedAnnotation ? "annotation" : "default"}
 					canvasMode={appState.ui.canvasMode}
 					canUndo={appState.ui.annotationUndoStack.length > 0}
 					canRedo={appState.ui.annotationRedoStack.length > 0}
@@ -411,6 +441,15 @@ export function App() {
 					}
 					onAddClass={(name, color) =>
 						dispatch({ type: "add_class", name, color })
+					}
+					onToggleAttribute={(name) =>
+						dispatch({ type: "toggle_attribute", name })
+					}
+					onAddAttribute={(name) =>
+						dispatch({ type: "add_attribute", name })
+					}
+					onDeleteAttribute={(name) =>
+						dispatch({ type: "delete_attribute", name })
 					}
 					onModeChange={(mode) =>
 						dispatch({ type: "set_canvas_mode", mode })
