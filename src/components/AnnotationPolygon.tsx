@@ -152,6 +152,14 @@ export function AnnotationPolygon({
 		.map((v) => `${v.x},${v.y}`)
 		.join(" ");
 
+	// Short attribute badge (e.g. "B/H/I") shown at the box's top-left corner.
+	const attrLabel = (annotation.attributes ?? [])
+		.map((a) => a.charAt(0).toUpperCase())
+		.filter(Boolean)
+		.join("/");
+	const labelX = Math.min(...annotation.vertices.map((v) => v.x));
+	const labelY = Math.min(...annotation.vertices.map((v) => v.y));
+
 	const filterId = `glow-${annotation.id}`;
 	const showHandles = isSelected && !isDeleteMode && !isPaintMode && !isDrawing;
 	const isTapMode = isDeleteMode || isPaintMode;
@@ -197,6 +205,24 @@ export function AnnotationPolygon({
 					<title>{annotation.attributes!.join(", ")}</title>
 				)}
 			</polygon>
+			{/* Attribute badge — first letter of each style attribute */}
+			{attrLabel && (
+				<text
+					x={labelX + 0.004}
+					y={labelY + 0.004}
+					fontSize={0.018}
+					fontWeight="bold"
+					fill="white"
+					stroke="rgba(0,0,0,0.7)"
+					strokeWidth={0.001}
+					paintOrder="stroke"
+					dominantBaseline="hanging"
+					style={{ pointerEvents: "none", userSelect: "none" }}
+					data-testid="annotation-attr-badge"
+				>
+					{attrLabel}
+				</text>
+			)}
 			{/* Vertex handles for edge editing */}
 			{showHandles && annotation.vertices.map((v, i) => (
 				<circle

@@ -411,10 +411,11 @@ export function App() {
 							dispatch({ type: "delete_annotation", fileId: selectedFile.id, annotationId });
 						} else if (appState.ui.canvasMode === "paint") {
 							dispatch({
-								type: "change_annotation_class",
+								type: "paint_annotation",
 								fileId: selectedFile.id,
 								annotationId,
 								classId: appState.ui.activeClassId,
+								attributes: appState.ui.activeAttributes,
 							});
 						} else {
 							dispatch({ type: "select_annotation", annotationId });

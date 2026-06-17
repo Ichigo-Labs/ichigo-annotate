@@ -116,6 +116,13 @@ export type AppAction =
 	| { type: "cancel_rect" }
 	| { type: "select_annotation"; annotationId: string | null }
 	| { type: "change_annotation_class"; fileId: string; annotationId: string; classId: string }
+	| {
+			type: "paint_annotation";
+			fileId: string;
+			annotationId: string;
+			classId: string;
+			attributes: string[];
+	  }
 	| { type: "delete_annotation"; fileId: string; annotationId: string }
 	| {
 			type: "move_annotation";

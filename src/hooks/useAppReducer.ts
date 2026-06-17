@@ -135,6 +135,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 				action.annotationId,
 				action.classId,
 			);
+		case "paint_annotation":
+			return handlePaintAnnotation(
+				pushUndoSnapshot(state),
+				action.fileId,
+				action.annotationId,
+				action.classId,
+				action.attributes,
+			);
 		case "delete_annotation":
 			return handleDeleteAnnotation(pushUndoSnapshot(state), action.fileId, action.annotationId);
 		case "move_annotation":
@@ -630,6 +638,44 @@ function handleChangeAnnotationClass(
 									? { ...a, classId }
 									: a,
 							),
+						}
+					: f,
+			),
+		},
+	};
+}
+
+// The paint tool: set the annotation's class AND overwrite its attributes
+// with the active set (existing attributes are replaced, not merged). When the
+// box is already that class, this still resets its attributes to the active set.
+function handlePaintAnnotation(
+	state: AppState,
+	fileId: string,
+	annotationId: string,
+	classId: string,
+	attributes: string[],
+): AppState {
+	return {
+		...state,
+		general: {
+			...state.general,
+			files: state.general.files.map((f) =>
+				f.id === fileId
+					? {
+							...f,
+							annotations: f.annotations.map((a) => {
+								if (a.id !== annotationId) return a;
+								// Drop the old attributes, then apply the active set —
+								// painting with none toggled clears them entirely.
+								const { attributes: _prev, ...rest } = a;
+								return {
+									...rest,
+									classId,
+									...(attributes.length > 0
+										? { attributes: [...attributes] }
+										: {}),
+								};
+							}),
 						}
 					: f,
 			),
