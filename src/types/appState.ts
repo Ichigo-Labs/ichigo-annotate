@@ -30,7 +30,7 @@ export interface ImageFile {
 }
 
 export type ExportFormat = "yolo" | "coco" | "json" | "voc" | "labelme";
-export type CanvasMode = "lasso" | "bucket" | "delete" | "paint" | "rect";
+export type CanvasMode = "lasso" | "bucket" | "delete" | "paint" | "rect" | "tag";
 
 // --- Toast ---
 
@@ -121,6 +121,14 @@ export type AppAction =
 			fileId: string;
 			annotationId: string;
 			classId: string;
+			attributes: string[];
+	  }
+	| {
+			// Apply the active attribute set to a tapped annotation (or clear it
+			// when empty), leaving the annotation's class unchanged.
+			type: "tag_annotation";
+			fileId: string;
+			annotationId: string;
 			attributes: string[];
 	  }
 	| { type: "delete_annotation"; fileId: string; annotationId: string }

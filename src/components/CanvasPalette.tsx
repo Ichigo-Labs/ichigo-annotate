@@ -299,6 +299,20 @@ export function CanvasPalette({
 					</svg>
 				</button>
 				<button
+					className={`${styles.iconBtn} ${canvasMode === "tag" ? styles.iconBtnActive : ""}`}
+					onClick={() => onModeChange("tag")}
+					aria-label="Apply attributes mode"
+					title="Apply the active attributes to a tapped box (clears it if none are active); keeps its class"
+					data-testid="mode-tag"
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+						{/* Tag body */}
+						<path d="M2.5 7.6V3.2a.7.7 0 0 1 .7-.7h4.4a.7.7 0 0 1 .5.2l5.2 5.2a.7.7 0 0 1 0 1l-4.4 4.4a.7.7 0 0 1-1 0L2.7 8.1a.7.7 0 0 1-.2-.5z" />
+						{/* Punch hole */}
+						<circle cx="5" cy="5" r="1" fill="currentColor" stroke="none" />
+					</svg>
+				</button>
+				<button
 					className={`${styles.iconBtn} ${canvasMode === "bucket" ? styles.iconBtnActive : ""}`}
 					onClick={() => onModeChange("bucket")}
 					aria-label="Bucket fill mode"

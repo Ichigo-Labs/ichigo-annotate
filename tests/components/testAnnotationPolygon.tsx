@@ -20,7 +20,7 @@ function renderWith(props: Partial<React.ComponentProps<typeof Wrapper>> & { onS
 }
 
 // Wrapper to provide an SVG container and ref.
-function Wrapper(props: { isDrawing?: boolean; isSelected?: boolean; isActiveClass?: boolean; isDeleteMode?: boolean; isPaintMode?: boolean; isRectMode?: boolean; onSelect?: (id: string) => void }) {
+function Wrapper(props: { isDrawing?: boolean; isSelected?: boolean; isActiveClass?: boolean; isDeleteMode?: boolean; isPaintMode?: boolean; isTagMode?: boolean; isRectMode?: boolean; onSelect?: (id: string) => void }) {
 	const svgRef = useRef<SVGSVGElement>(null);
 	return (
 		<svg ref={svgRef} data-testid="test-svg">
@@ -32,6 +32,7 @@ function Wrapper(props: { isDrawing?: boolean; isSelected?: boolean; isActiveCla
 				isSelected={props.isSelected ?? false}
 				isDeleteMode={props.isDeleteMode ?? false}
 				isPaintMode={props.isPaintMode ?? false}
+				isTagMode={props.isTagMode ?? false}
 				isRectMode={props.isRectMode ?? false}
 				onMoveStart={noop}
 				onMove={noop}

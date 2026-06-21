@@ -9,6 +9,7 @@ interface AnnotationPolygonProps {
 	isSelected: boolean;
 	isDeleteMode: boolean;
 	isPaintMode: boolean;
+	isTagMode: boolean;
 	isRectMode: boolean;
 	onMoveStart: (annotationId: string) => void;
 	onMove: (annotationId: string, delta: Point) => void;
@@ -44,6 +45,7 @@ export function AnnotationPolygon({
 	isSelected,
 	isDeleteMode,
 	isPaintMode,
+	isTagMode,
 	isRectMode,
 	onMoveStart,
 	onMove,
@@ -65,7 +67,7 @@ export function AnnotationPolygon({
 
 	const handlePolyDown = (e: React.PointerEvent) => {
 		// Tap-to-act modes fire onSelect on any annotation, regardless of class.
-		if (isDeleteMode || isPaintMode) {
+		if (isDeleteMode || isPaintMode || isTagMode) {
 			e.stopPropagation();
 			onSelect(annotation.id);
 			return;
@@ -161,8 +163,8 @@ export function AnnotationPolygon({
 	const labelY = Math.min(...annotation.vertices.map((v) => v.y));
 
 	const filterId = `glow-${annotation.id}`;
-	const showHandles = isSelected && !isDeleteMode && !isPaintMode && !isDrawing;
-	const isTapMode = isDeleteMode || isPaintMode;
+	const showHandles = isSelected && !isDeleteMode && !isPaintMode && !isTagMode && !isDrawing;
+	const isTapMode = isDeleteMode || isPaintMode || isTagMode;
 
 	return (
 		<g

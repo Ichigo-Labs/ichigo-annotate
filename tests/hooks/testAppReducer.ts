@@ -484,6 +484,88 @@ describe("change_annotation_class", () => {
 	});
 });
 
+describe("tag_annotation", () => {
+	const fileWith = (attrs?: string[]): ImageFile => ({
+		...makeFile("f1", "img.png"),
+		annotations: [
+			{
+				id: "a1",
+				classId: "Dialog",
+				vertices: [],
+				...(attrs ? { attributes: attrs } : {}),
+			},
+			{ id: "a2", classId: "Mutter", vertices: [] },
+		],
+	});
+
+	it("applies the active attributes without changing the class", () => {
+		const state = stateWith({ general: { files: [fileWith()] } });
+		const next = appReducer(state, {
+			type: "tag_annotation",
+			fileId: "f1",
+			annotationId: "a1",
+			attributes: ["bold", "float"],
+		});
+		const a1 = next.general.files[0]!.annotations[0]!;
+		expect(a1.attributes).toEqual(["bold", "float"]);
+		expect(a1.classId).toBe("Dialog");
+	});
+
+	it("clears attributes when the active set is empty", () => {
+		const state = stateWith({ general: { files: [fileWith(["bold"])] } });
+		const next = appReducer(state, {
+			type: "tag_annotation",
+			fileId: "f1",
+			annotationId: "a1",
+			attributes: [],
+		});
+		const a1 = next.general.files[0]!.annotations[0]!;
+		expect(a1.attributes).toBeUndefined();
+		expect(a1.classId).toBe("Dialog");
+	});
+
+	it("overwrites rather than merges existing attributes", () => {
+		const state = stateWith({
+			general: { files: [fileWith(["italic", "handwritten"])] },
+		});
+		const next = appReducer(state, {
+			type: "tag_annotation",
+			fileId: "f1",
+			annotationId: "a1",
+			attributes: ["bold"],
+		});
+		expect(next.general.files[0]!.annotations[0]!.attributes).toEqual(["bold"]);
+	});
+
+	it("does not affect other annotations", () => {
+		const state = stateWith({ general: { files: [fileWith()] } });
+		const next = appReducer(state, {
+			type: "tag_annotation",
+			fileId: "f1",
+			annotationId: "a1",
+			attributes: ["bold"],
+		});
+		const a2 = next.general.files[0]!.annotations[1]!;
+		expect(a2.attributes).toBeUndefined();
+		expect(a2.classId).toBe("Mutter");
+	});
+
+	it("is undoable", () => {
+		const state = stateWith({
+			ui: { selectedFileId: "f1" },
+			general: { files: [fileWith()] },
+		});
+		const next = appReducer(state, {
+			type: "tag_annotation",
+			fileId: "f1",
+			annotationId: "a1",
+			attributes: ["bold"],
+		});
+		const undone = appReducer(next, { type: "undo_annotation" });
+		expect(undone.general.files[0]!.annotations[0]!.attributes).toBeUndefined();
+	});
+});
+
 describe("selection cleared on navigation and deletion", () => {
 	it("clears selectedAnnotationId on select_file", () => {
 		const state = stateWith({

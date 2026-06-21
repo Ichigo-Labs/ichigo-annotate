@@ -417,6 +417,13 @@ export function App() {
 								classId: appState.ui.activeClassId,
 								attributes: appState.ui.activeAttributes,
 							});
+						} else if (appState.ui.canvasMode === "tag") {
+							dispatch({
+								type: "tag_annotation",
+								fileId: selectedFile.id,
+								annotationId,
+								attributes: appState.ui.activeAttributes,
+							});
 						} else {
 							dispatch({ type: "select_annotation", annotationId });
 						}

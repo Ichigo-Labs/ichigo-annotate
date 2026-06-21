@@ -66,6 +66,7 @@ export function Canvas({
 	const isDrawing = activeLassoPoints !== null;
 	const isDeleteMode = canvasMode === "delete";
 	const isPaintMode = canvasMode === "paint";
+	const isTagMode = canvasMode === "tag";
 	const isRectMode = canvasMode === "rect";
 
 	const handleMoveStart = (annotationId: string) => {
@@ -131,9 +132,9 @@ export function Canvas({
 			return;
 		}
 
-		// Paint mode is tap-to-reclassify on annotations only. Clicks on the
+		// Paint/tag modes are tap-to-act on annotations only. Clicks on the
 		// background should not start a lasso draw.
-		if (isPaintMode) {
+		if (isPaintMode || isTagMode) {
 			onSelectAnnotation(null);
 			return;
 		}
@@ -218,6 +219,7 @@ export function Canvas({
 							isActiveClass={ann.classId === activeClassId}
 							isDeleteMode={isDeleteMode}
 							isPaintMode={isPaintMode}
+							isTagMode={isTagMode}
 							isRectMode={isRectMode}
 							isSelected={false}
 							onMoveStart={handleMoveStart}
@@ -299,6 +301,7 @@ export function Canvas({
 									isActiveClass={ann.classId === activeClassId}
 									isDeleteMode={isDeleteMode}
 									isPaintMode={isPaintMode}
+									isTagMode={isTagMode}
 									isRectMode={isRectMode}
 									isSelected={true}
 									onMoveStart={handleMoveStart}

@@ -143,6 +143,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 				action.classId,
 				action.attributes,
 			);
+		case "tag_annotation":
+			return handleTagAnnotation(
+				pushUndoSnapshot(state),
+				action.fileId,
+				action.annotationId,
+				action.attributes,
+			);
 		case "delete_annotation":
 			return handleDeleteAnnotation(pushUndoSnapshot(state), action.fileId, action.annotationId);
 		case "move_annotation":
@@ -671,6 +678,42 @@ function handlePaintAnnotation(
 								return {
 									...rest,
 									classId,
+									...(attributes.length > 0
+										? { attributes: [...attributes] }
+										: {}),
+								};
+							}),
+						}
+					: f,
+			),
+		},
+	};
+}
+
+// The tag tool: overwrite an annotation's attributes with the active set (or
+// clear them when the set is empty), leaving its class unchanged. Mirrors the
+// paint tool but never touches `classId`.
+function handleTagAnnotation(
+	state: AppState,
+	fileId: string,
+	annotationId: string,
+	attributes: string[],
+): AppState {
+	return {
+		...state,
+		general: {
+			...state.general,
+			files: state.general.files.map((f) =>
+				f.id === fileId
+					? {
+							...f,
+							annotations: f.annotations.map((a) => {
+								if (a.id !== annotationId) return a;
+								// Drop the old attributes, then apply the active set —
+								// tagging with none toggled clears them entirely.
+								const { attributes: _prev, ...rest } = a;
+								return {
+									...rest,
 									...(attributes.length > 0
 										? { attributes: [...attributes] }
 										: {}),
