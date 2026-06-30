@@ -104,17 +104,33 @@ describe("Canvas", () => {
 		}
 	});
 
-	it("does not navigate when clicking canvas margins in rect mode", () => {
+	it("does not navigate when a box is mid-draw in rect mode", () => {
 		const onNavigate = vi.fn();
 		render(
 			<Canvas
 				{...defaultProps}
 				canvasMode="rect"
+				activeRectPoints={[{ x: 0.2, y: 0.2 }]}
 				onNavigate={onNavigate}
 			/>,
 		);
 
 		fireEvent.click(screen.getByTestId("canvas"));
 		expect(onNavigate).not.toHaveBeenCalled();
+	});
+
+	it("navigates in rect mode when no box anchors are placed yet", () => {
+		const onNavigate = vi.fn();
+		render(
+			<Canvas
+				{...defaultProps}
+				canvasMode="rect"
+				activeRectPoints={null}
+				onNavigate={onNavigate}
+			/>,
+		);
+
+		fireEvent.click(screen.getByTestId("canvas"));
+		expect(onNavigate).toHaveBeenCalledTimes(1);
 	});
 });
