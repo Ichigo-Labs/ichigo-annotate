@@ -38,9 +38,11 @@ const defaultProps = {
 	polygonize: false,
 	polygonizeSides: 4,
 	stretchImage: true,
+	twoTapBox: false,
 	onPolygonizeChange: noop,
 	onPolygonizeSidesChange: noop,
 	onStretchImageChange: noop,
+	onTwoTapBoxChange: noop,
 };
 
 describe("FileList", () => {
@@ -119,5 +121,14 @@ describe("FileList", () => {
 	it("sides input is enabled when polygonize is on", () => {
 		render(<FileList {...defaultProps} polygonize={true} />);
 		expect(screen.getByTestId("polygonize-sides")).not.toBeDisabled();
+	});
+
+	it("two tap box checkbox calls onTwoTapBoxChange", () => {
+		const onTwoTapBoxChange = vi.fn();
+		render(
+			<FileList {...defaultProps} onTwoTapBoxChange={onTwoTapBoxChange} />,
+		);
+		fireEvent.click(screen.getByTestId("two-tap-box-checkbox"));
+		expect(onTwoTapBoxChange).toHaveBeenCalledWith(true);
 	});
 });

@@ -8,6 +8,12 @@ import { polygonizeVertices, translatePolygon } from "../utils/areaUtils";
 import { sortFilesByName } from "../utils/fileSort";
 import { loadFullState, saveFilesDiff, savePrefs } from "../services/appStorage";
 import type { ImageFile } from "../types/appState";
+import {
+	hasMinimumRectSize,
+	isTooNearExistingPoint,
+	orderRectVertices,
+	rectFromDiagonal,
+} from "../utils/rectUtils";
 
 // --- Reducer (exported for direct testing) ---
 
@@ -36,7 +42,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 		case "select_file":
 			return {
 				...state,
-				ui: { ...state.ui, selectedFileId: action.fileId, selectedAnnotationId: null, annotationUndoStack: [], annotationRedoStack: [], activeRectPoints: null },
+				ui: {
+					...state.ui,
+					selectedFileId: action.fileId,
+					selectedAnnotationId: null,
+					annotationUndoStack: [],
+					annotationRedoStack: [],
+					activeRectPoints: null,
+				},
 			};
 		case "delete_file":
 			return handleDeleteFile(state, action.fileId);
@@ -80,6 +93,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 			return {
 				...state,
 				ui: { ...state.ui, stretchImage: action.enabled },
+			};
+		case "set_two_tap_box":
+			return {
+				...state,
+				ui: { ...state.ui, twoTapBox: action.enabled, activeRectPoints: null },
 			};
 
 		// -- Polygonize --
@@ -591,21 +609,34 @@ function handleCompleteLasso(state: AppState): AppState {
 
 function handleAddRectPoint(state: AppState, point: Point): AppState {
 	const existing = state.ui.activeRectPoints ?? [];
-	const updated = [...existing, point];
+	if (isTooNearExistingPoint(point, existing)) {
+		return state;
+	}
 
+	if (state.ui.twoTapBox && existing.length === 1) {
+		return completeRectAnnotation(state, rectFromDiagonal(existing[0]!, point));
+	}
+
+	const updated = [...existing, point];
 	if (updated.length < 4) {
 		return { ...state, ui: { ...state.ui, activeRectPoints: updated } };
 	}
 
-	// 4th point — complete the rectangle.
+	return completeRectAnnotation(state, orderRectVertices(updated.slice(0, 4)));
+}
+
+function completeRectAnnotation(state: AppState, vertices: Point[]): AppState {
 	if (!state.ui.selectedFileId) {
 		return { ...state, ui: { ...state.ui, activeRectPoints: null } };
+	}
+	if (!hasMinimumRectSize(vertices)) {
+		return state;
 	}
 
 	const annotation = {
 		id: `ann-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
 		classId: state.ui.activeClassId,
-		vertices: updated,
+		vertices,
 		...(state.ui.activeAttributes.length > 0
 			? { attributes: [...state.ui.activeAttributes] }
 			: {}),
@@ -936,7 +967,14 @@ function handleNavigateFile(
 
 	return {
 		...state,
-		ui: { ...state.ui, selectedFileId: sorted[nextIndex]!.id, selectedAnnotationId: null, annotationUndoStack: [], annotationRedoStack: [], activeRectPoints: null },
+		ui: {
+			...state.ui,
+			selectedFileId: sorted[nextIndex]!.id,
+			selectedAnnotationId: null,
+			annotationUndoStack: [],
+			annotationRedoStack: [],
+			activeRectPoints: null,
+		},
 	};
 }
 

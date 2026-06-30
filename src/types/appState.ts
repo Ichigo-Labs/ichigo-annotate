@@ -54,6 +54,7 @@ export interface UIState {
 	importModalOpen: boolean;
 	exportModalOpen: boolean;
 	stretchImage: boolean;
+	twoTapBox: boolean;
 	canvasMode: CanvasMode;
 	annotationUndoStack: Annotation[][];
 	annotationRedoStack: Annotation[][];
@@ -106,6 +107,7 @@ export type AppAction =
 	| { type: "add_attribute"; name: string }
 	| { type: "delete_attribute"; name: string }
 	| { type: "set_stretch_image"; enabled: boolean }
+	| { type: "set_two_tap_box"; enabled: boolean }
 	| { type: "set_polygonize"; enabled: boolean }
 	| { type: "set_polygonize_sides"; sides: number }
 	| { type: "start_lasso"; point: Point }
@@ -193,6 +195,7 @@ export function createInitialState(): AppState {
 			importModalOpen: false,
 			exportModalOpen: false,
 			stretchImage: true,
+			twoTapBox: false,
 			canvasMode: "lasso" as const,
 			annotationUndoStack: [],
 			annotationRedoStack: [],

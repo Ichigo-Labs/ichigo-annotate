@@ -18,6 +18,7 @@ export interface StoredPrefs {
 		selectedFileId: string | null;
 		searchQuery: string;
 		stretchImage: boolean;
+		twoTapBox?: boolean;
 		activeAttributes?: string[];
 	};
 	general: {
@@ -65,6 +66,7 @@ export function savePrefs(state: AppState): void {
 			selectedFileId: state.ui.selectedFileId,
 			searchQuery: state.ui.searchQuery,
 			stretchImage: state.ui.stretchImage,
+			twoTapBox: state.ui.twoTapBox,
 			activeAttributes: state.ui.activeAttributes,
 		},
 		general: {
@@ -158,6 +160,8 @@ export async function loadFullState(): Promise<AppState> {
 		ui: {
 			...base.ui,
 			...(prefs?.ui ?? {}),
+			importModalOpen: false,
+			exportModalOpen: false,
 		},
 		general: {
 			...base.general,

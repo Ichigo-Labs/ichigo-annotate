@@ -14,6 +14,7 @@ interface FileListProps {
 	polygonize: boolean;
 	polygonizeSides: number;
 	stretchImage: boolean;
+	twoTapBox: boolean;
 	onSearchChange: (query: string) => void;
 	onSelectFile: (fileId: string) => void;
 	onDeleteFile: (fileId: string) => void;
@@ -23,6 +24,7 @@ interface FileListProps {
 	onPolygonizeChange: (enabled: boolean) => void;
 	onPolygonizeSidesChange: (sides: number) => void;
 	onStretchImageChange: (enabled: boolean) => void;
+	onTwoTapBoxChange: (enabled: boolean) => void;
 }
 
 export function FileList({
@@ -41,9 +43,11 @@ export function FileList({
 	polygonize,
 	polygonizeSides,
 	stretchImage,
+	twoTapBox,
 	onPolygonizeChange,
 	onPolygonizeSidesChange,
 	onStretchImageChange,
+	onTwoTapBoxChange,
 }: FileListProps) {
 	const [sidesText, setSidesText] = useState(String(polygonizeSides));
 
@@ -155,6 +159,19 @@ export function FileList({
 					Stretch image
 				</label>
 			</div>
+
+			<div className={styles.polygonizeRow} data-testid="two-tap-box-row">
+				<label className={styles.polygonizeLabel}>
+					<input
+						type="checkbox"
+						checked={twoTapBox}
+						onChange={(e) => onTwoTapBoxChange(e.target.checked)}
+						data-testid="two-tap-box-checkbox"
+					/>
+					Two tap box
+				</label>
+			</div>
+
 		</div>
 	);
 }

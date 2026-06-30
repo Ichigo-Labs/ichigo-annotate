@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { Canvas } from "../../src/components/Canvas";
@@ -102,5 +102,19 @@ describe("Canvas", () => {
 			expect(v).toBeGreaterThanOrEqual(0);
 			expect(v).toBeLessThanOrEqual(1);
 		}
+	});
+
+	it("does not navigate when clicking canvas margins in rect mode", () => {
+		const onNavigate = vi.fn();
+		render(
+			<Canvas
+				{...defaultProps}
+				canvasMode="rect"
+				onNavigate={onNavigate}
+			/>,
+		);
+
+		fireEvent.click(screen.getByTestId("canvas"));
+		expect(onNavigate).not.toHaveBeenCalled();
 	});
 });

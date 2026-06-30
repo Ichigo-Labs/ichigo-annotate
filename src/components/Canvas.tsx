@@ -94,6 +94,10 @@ export function Canvas({
 	// Navigate forward/backward when clicking on the black margins.
 	const handleContainerClick = (e: React.MouseEvent) => {
 		if (e.target !== e.currentTarget) return;
+		// In box mode, a tiny miss just outside the image should not advance the
+		// file and lose the in-progress anchors.
+		if (isRectMode) return;
+
 		const rect = e.currentTarget.getBoundingClientRect();
 		const clickX = e.clientX - rect.left;
 		if (clickX < rect.width / 2) {

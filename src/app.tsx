@@ -329,6 +329,7 @@ export function App() {
 					polygonize={appState.general.polygonize}
 					polygonizeSides={appState.general.polygonizeSides}
 					stretchImage={appState.ui.stretchImage}
+					twoTapBox={appState.ui.twoTapBox}
 					onPolygonizeChange={(enabled) =>
 						dispatch({ type: "set_polygonize", enabled })
 					}
@@ -337,6 +338,9 @@ export function App() {
 					}
 					onStretchImageChange={(enabled) =>
 						dispatch({ type: "set_stretch_image", enabled })
+					}
+					onTwoTapBoxChange={(enabled) =>
+						dispatch({ type: "set_two_tap_box", enabled })
 					}
 				/>
 			</Sidebar>

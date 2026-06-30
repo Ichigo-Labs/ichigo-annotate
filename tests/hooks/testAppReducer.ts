@@ -432,6 +432,77 @@ describe("lasso lifecycle", () => {
 	});
 });
 
+// -- Rect / box --
+
+describe("rect lifecycle", () => {
+	it("creates a proper non-criss-cross box from four unordered corner taps", () => {
+		const f = makeFile("f1", "img.png");
+		let state = stateWith({
+			ui: { selectedFileId: "f1" },
+			general: { files: [f] },
+		});
+		for (const point of [
+			{ x: 0.1, y: 0.1 },
+			{ x: 0.9, y: 0.9 },
+			{ x: 0.9, y: 0.1 },
+			{ x: 0.1, y: 0.9 },
+		]) {
+			state = appReducer(state, { type: "add_rect_point", point });
+		}
+
+		expect(state.ui.activeRectPoints).toBeNull();
+		expect(state.general.files[0]!.annotations[0]!.vertices).toEqual([
+			{ x: 0.1, y: 0.1 },
+			{ x: 0.9, y: 0.1 },
+			{ x: 0.9, y: 0.9 },
+			{ x: 0.1, y: 0.9 },
+		]);
+	});
+
+	it("creates an axis-aligned box from two diagonal taps when twoTapBox is enabled", () => {
+		const f = makeFile("f1", "img.png");
+		let state = stateWith({
+			ui: { selectedFileId: "f1", twoTapBox: true },
+			general: { files: [f] },
+		});
+		state = appReducer(state, {
+			type: "add_rect_point",
+			point: { x: 0.8, y: 0.7 },
+		});
+		state = appReducer(state, {
+			type: "add_rect_point",
+			point: { x: 0.2, y: 0.1 },
+		});
+
+		expect(state.ui.activeRectPoints).toBeNull();
+		expect(state.general.files[0]!.annotations[0]!.vertices).toEqual([
+			{ x: 0.2, y: 0.1 },
+			{ x: 0.8, y: 0.1 },
+			{ x: 0.8, y: 0.7 },
+			{ x: 0.2, y: 0.7 },
+		]);
+	});
+
+	it("ignores near-duplicate rect taps", () => {
+		const f = makeFile("f1", "img.png");
+		let state = stateWith({
+			ui: { selectedFileId: "f1" },
+			general: { files: [f] },
+		});
+		state = appReducer(state, {
+			type: "add_rect_point",
+			point: { x: 0.5, y: 0.5 },
+		});
+		state = appReducer(state, {
+			type: "add_rect_point",
+			point: { x: 0.505, y: 0.505 },
+		});
+
+		expect(state.ui.activeRectPoints).toEqual([{ x: 0.5, y: 0.5 }]);
+		expect(state.general.files[0]!.annotations).toHaveLength(0);
+	});
+});
+
 // -- Annotation selection & class change --
 
 describe("select_annotation", () => {

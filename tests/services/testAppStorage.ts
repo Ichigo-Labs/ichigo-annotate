@@ -32,10 +32,12 @@ afterEach(async () => {
 describe("savePrefs / loadPrefs", () => {
 	it("round-trips preferences correctly", () => {
 		const state = createInitialState();
+		state.ui.twoTapBox = true;
 		savePrefs(state);
 		const prefs = loadPrefs();
 		expect(prefs).not.toBeNull();
 		expect(prefs!.ui.sidebarWidthPercent).toBe(20);
+		expect(prefs!.ui.twoTapBox).toBe(true);
 		expect(prefs!.general.exportFormat).toBe("yolo");
 		expect(prefs!.general.classes).toHaveLength(1);
 	});
