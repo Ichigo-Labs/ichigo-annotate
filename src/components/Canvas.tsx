@@ -1,6 +1,7 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import type { Annotation, AnnotationClass, CanvasMode, Point } from "../types/appState";
 import { distanceBetween, isNearlyComplete, isPolygonClosed } from "../utils/areaUtils";
+import { computeAttributeAbbreviations } from "../utils/attributeAbbrev";
 import { AnnotationPolygon } from "./AnnotationPolygon";
 import styles from "./Canvas.module.css";
 
@@ -8,6 +9,7 @@ interface CanvasProps {
 	imageDataUrl: string | null;
 	annotations: Annotation[];
 	classes: AnnotationClass[];
+	attributes: string[];
 	activeLassoPoints: Point[] | null;
 	activeRectPoints: Point[] | null;
 	activeClassId: string;
@@ -39,6 +41,7 @@ export function Canvas({
 	imageDataUrl,
 	annotations,
 	classes,
+	attributes,
 	activeLassoPoints,
 	activeRectPoints,
 	activeClassId,
@@ -68,6 +71,11 @@ export function Canvas({
 	const isPaintMode = canvasMode === "paint";
 	const isTagMode = canvasMode === "tag";
 	const isRectMode = canvasMode === "rect";
+
+	const attributeAbbreviations = useMemo(
+		() => computeAttributeAbbreviations(attributes),
+		[attributes],
+	);
 
 	const handleMoveStart = (annotationId: string) => {
 		onLassoCancel();
@@ -220,6 +228,7 @@ export function Canvas({
 							key={ann.id}
 							annotation={ann}
 							classColor={classColor(ann.classId)}
+							attributeAbbreviations={attributeAbbreviations}
 							isDrawing={isDrawing}
 							isActiveClass={ann.classId === activeClassId}
 							isDeleteMode={isDeleteMode}
@@ -302,6 +311,7 @@ export function Canvas({
 									key={ann.id}
 									annotation={ann}
 									classColor={classColor(ann.classId)}
+									attributeAbbreviations={attributeAbbreviations}
 									isDrawing={isDrawing}
 									isActiveClass={ann.classId === activeClassId}
 									isDeleteMode={isDeleteMode}

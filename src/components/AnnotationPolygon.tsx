@@ -1,9 +1,12 @@
 import { useRef } from "react";
 import type { Annotation, Point } from "../types/appState";
+import { abbreviateAttribute } from "../utils/attributeAbbrev";
 
 interface AnnotationPolygonProps {
 	annotation: Annotation;
 	classColor: string;
+	// Attribute name → unique short label, computed across the vocabulary.
+	attributeAbbreviations: Map<string, string>;
 	isDrawing: boolean;
 	isActiveClass: boolean;
 	isSelected: boolean;
@@ -40,6 +43,7 @@ const VERTEX_RADIUS = 0.005;
 export function AnnotationPolygon({
 	annotation,
 	classColor,
+	attributeAbbreviations,
 	isDrawing,
 	isActiveClass,
 	isSelected,
@@ -154,9 +158,11 @@ export function AnnotationPolygon({
 		.map((v) => `${v.x},${v.y}`)
 		.join(" ");
 
-	// Short attribute badge (e.g. "B/H/I") shown at the box's top-left corner.
+	// Short attribute badge (e.g. "B/HB/I") shown at the box's top-left corner.
+	// Abbreviations are unique across the vocabulary; attributes no longer in
+	// the vocabulary fall back to their word initials.
 	const attrLabel = (annotation.attributes ?? [])
-		.map((a) => a.charAt(0).toUpperCase())
+		.map((a) => attributeAbbreviations.get(a) ?? abbreviateAttribute(a))
 		.filter(Boolean)
 		.join("/");
 	const labelX = Math.min(...annotation.vertices.map((v) => v.x));
@@ -207,7 +213,7 @@ export function AnnotationPolygon({
 					<title>{annotation.attributes!.join(", ")}</title>
 				)}
 			</polygon>
-			{/* Attribute badge — first letter of each style attribute */}
+			{/* Attribute badge — unique abbreviation of each style attribute */}
 			{attrLabel && (
 				<text
 					x={labelX + 0.004}

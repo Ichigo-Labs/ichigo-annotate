@@ -26,6 +26,7 @@ const defaultProps = {
 	imageDataUrl: "data:image/png;base64,abc",
 	annotations: [] as Annotation[],
 	classes,
+	attributes: [] as string[],
 	activeLassoPoints: null as null | { x: number; y: number }[],
 	activeRectPoints: null as null | { x: number; y: number }[],
 	activeClassId: "c1",

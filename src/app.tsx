@@ -351,6 +351,7 @@ export function App() {
 					imageDataUrl={selectedFile?.dataUrl ?? null}
 					annotations={selectedFile?.annotations ?? []}
 					classes={appState.general.classes}
+					attributes={appState.general.attributes}
 					activeLassoPoints={appState.ui.activeLassoPoints}
 					activeRectPoints={appState.ui.activeRectPoints}
 					activeClassId={appState.ui.activeClassId}

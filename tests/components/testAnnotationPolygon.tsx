@@ -20,13 +20,14 @@ function renderWith(props: Partial<React.ComponentProps<typeof Wrapper>> & { onS
 }
 
 // Wrapper to provide an SVG container and ref.
-function Wrapper(props: { isDrawing?: boolean; isSelected?: boolean; isActiveClass?: boolean; isDeleteMode?: boolean; isPaintMode?: boolean; isTagMode?: boolean; isRectMode?: boolean; onSelect?: (id: string) => void }) {
+function Wrapper(props: { annotation?: typeof annotation & { attributes?: string[] }; attributeAbbreviations?: Map<string, string>; isDrawing?: boolean; isSelected?: boolean; isActiveClass?: boolean; isDeleteMode?: boolean; isPaintMode?: boolean; isTagMode?: boolean; isRectMode?: boolean; onSelect?: (id: string) => void }) {
 	const svgRef = useRef<SVGSVGElement>(null);
 	return (
 		<svg ref={svgRef} data-testid="test-svg">
 			<AnnotationPolygon
-				annotation={annotation}
+				annotation={props.annotation ?? annotation}
 				classColor="#ff0000"
+				attributeAbbreviations={props.attributeAbbreviations ?? new Map()}
 				isDrawing={props.isDrawing ?? false}
 				isActiveClass={props.isActiveClass ?? true}
 				isSelected={props.isSelected ?? false}
@@ -85,4 +86,22 @@ describe("AnnotationPolygon", () => {
 		expect(screen.getByTestId("annotation-polygon").querySelectorAll("circle")).toHaveLength(0);
 	});
 
+	it("renders vocabulary abbreviations in the attribute badge", () => {
+		const abbrev = new Map([
+			["handwritten", "H"],
+			["has-border", "HB"],
+		]);
+		renderWith({
+			annotation: { ...annotation, attributes: ["handwritten", "has-border"] },
+			attributeAbbreviations: abbrev,
+		});
+		expect(screen.getByTestId("annotation-attr-badge").textContent).toBe("H/HB");
+	});
+
+	it("falls back to word initials for attributes missing from the map", () => {
+		renderWith({
+			annotation: { ...annotation, attributes: ["has-border"] },
+		});
+		expect(screen.getByTestId("annotation-attr-badge").textContent).toBe("HB");
+	});
 });
