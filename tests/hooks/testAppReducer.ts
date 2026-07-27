@@ -938,7 +938,7 @@ describe("attributes", () => {
 		expect(dup.general.attributes.filter((n) => n === "tiny")).toHaveLength(1);
 	});
 
-	it("delete_attribute strips it from vocab, active set, and annotations", () => {
+	it("delete_attribute removes it from vocab and active set but keeps annotation tags", () => {
 		const file = fileWithAnn();
 		file.annotations[0]!.attributes = ["italic", "bold"];
 		const state = stateWith({
@@ -948,7 +948,11 @@ describe("attributes", () => {
 		const next = appReducer(state, { type: "delete_attribute", name: "italic" });
 		expect(next.general.attributes).not.toContain("italic");
 		expect(next.ui.activeAttributes).toEqual([]);
-		expect(next.general.files[0]!.annotations[0]!.attributes).toEqual(["bold"]);
+		expect(next.general.files[0]!.annotations[0]!.attributes).toEqual([
+			"italic",
+			"bold",
+		]);
+		expect(next.general.files[0]).toBe(state.general.files[0]);
 	});
 
 	it("new annotations inherit the active attribute set", () => {

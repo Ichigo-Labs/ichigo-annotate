@@ -534,20 +534,11 @@ function handleAddAttribute(state: AppState, name: string): AppState {
 	};
 }
 
-// Removes the attribute from the vocabulary, the active set, and every
-// annotation across all files (kept tags would silently re-enter exports).
+// Removes the attribute from the vocabulary and the active set only.
+// Tags already on annotations are kept: exports merge them back in and
+// import restores them to the vocabulary, so nothing is lost — and a
+// stray click on a pill's × can't wipe data across every image.
 function handleDeleteAttribute(state: AppState, name: string): AppState {
-	const stripAnnotations = (file: AppState["general"]["files"][number]) => {
-		if (!file.annotations.some((a) => a.attributes?.includes(name))) return file;
-		return {
-			...file,
-			annotations: file.annotations.map((a) =>
-				a.attributes?.includes(name)
-					? { ...a, attributes: a.attributes.filter((n) => n !== name) }
-					: a,
-			),
-		};
-	};
 	return {
 		...state,
 		ui: {
@@ -557,7 +548,6 @@ function handleDeleteAttribute(state: AppState, name: string): AppState {
 		general: {
 			...state.general,
 			attributes: state.general.attributes.filter((n) => n !== name),
-			files: state.general.files.map(stripAnnotations),
 		},
 	};
 }
