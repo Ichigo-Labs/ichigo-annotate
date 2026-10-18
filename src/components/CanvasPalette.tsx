@@ -284,6 +284,22 @@ export function CanvasPalette({
 					</svg>
 				</button>
 				<button
+					className={`${styles.iconBtn} ${canvasMode === "polygon" ? styles.iconBtnActive : ""}`}
+					onClick={() => onModeChange("polygon")}
+					aria-label="Polygon mode"
+					title="Tap to place vertices; tap the first vertex again to close the shape"
+					data-testid="mode-polygon"
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+						<path d="M8 2.5l5.5 4-2 7h-7l-2-7z"/>
+						<circle cx="8" cy="2.5" r="1.2" fill="currentColor" stroke="none"/>
+						<circle cx="13.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/>
+						<circle cx="11.5" cy="13.5" r="1.2" fill="currentColor" stroke="none"/>
+						<circle cx="4.5" cy="13.5" r="1.2" fill="currentColor" stroke="none"/>
+						<circle cx="2.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/>
+					</svg>
+				</button>
+				<button
 					className={`${styles.iconBtn} ${canvasMode === "paint" ? styles.iconBtnActive : ""}`}
 					onClick={() => onModeChange("paint")}
 					aria-label="Paint class mode"

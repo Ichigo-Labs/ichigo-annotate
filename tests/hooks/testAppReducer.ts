@@ -503,6 +503,138 @@ describe("rect lifecycle", () => {
 	});
 });
 
+// -- Polygon --
+
+describe("polygon lifecycle", () => {
+	const tapAll = (state: AppState, points: { x: number; y: number }[]) =>
+		points.reduce(
+			(s, point) => appReducer(s, { type: "add_polygon_point", point }),
+			state,
+		);
+
+	const drawingState = () =>
+		stateWith({
+			ui: { selectedFileId: "f1", canvasMode: "polygon" },
+			general: { files: [makeFile("f1", "img.png")] },
+		});
+
+	const pentagon = [
+		{ x: 0.5, y: 0.1 },
+		{ x: 0.9, y: 0.4 },
+		{ x: 0.75, y: 0.9 },
+		{ x: 0.25, y: 0.9 },
+		{ x: 0.1, y: 0.4 },
+	];
+
+	it("places vertices in tap order without committing", () => {
+		const state = tapAll(drawingState(), pentagon.slice(0, 3));
+
+		expect(state.ui.activePolygonPoints).toEqual(pentagon.slice(0, 3));
+		expect(state.general.files[0]!.annotations).toHaveLength(0);
+	});
+
+	it("tapping the first vertex again closes the loop into an annotation", () => {
+		const state = tapAll(
+			stateWith({
+				ui: {
+					selectedFileId: "f1",
+					activeClassId: "c-dialog",
+					activeAttributes: ["bold"],
+				},
+				general: { files: [makeFile("f1", "img.png")] },
+			}),
+			[...pentagon, { x: 0.505, y: 0.105 }],
+		);
+
+		expect(state.ui.activePolygonPoints).toBeNull();
+		const anns = state.general.files[0]!.annotations;
+		expect(anns).toHaveLength(1);
+		expect(anns[0]!.vertices).toEqual(pentagon);
+		expect(anns[0]!.classId).toBe("c-dialog");
+		expect(anns[0]!.attributes).toEqual(["bold"]);
+	});
+
+	it("does not close before there are three vertices", () => {
+		const state = tapAll(drawingState(), [
+			{ x: 0.2, y: 0.2 },
+			{ x: 0.6, y: 0.2 },
+			{ x: 0.2, y: 0.2 },
+		]);
+
+		expect(state.ui.activePolygonPoints).toHaveLength(2);
+		expect(state.general.files[0]!.annotations).toHaveLength(0);
+	});
+
+	it("ignores near-duplicate taps on other vertices", () => {
+		const state = tapAll(drawingState(), [
+			{ x: 0.2, y: 0.2 },
+			{ x: 0.6, y: 0.2 },
+			{ x: 0.605, y: 0.205 },
+		]);
+
+		expect(state.ui.activePolygonPoints).toHaveLength(2);
+	});
+
+	it("places the vertex beside the start of a thin shape instead of closing", () => {
+		const thinQuad = [
+			{ x: 0.2, y: 0.5 },
+			{ x: 0.6, y: 0.5 },
+			{ x: 0.6, y: 0.52 },
+			{ x: 0.2, y: 0.52 },
+		];
+
+		const state = tapAll(drawingState(), [...thinQuad, { x: 0.2, y: 0.5 }]);
+
+		expect(state.general.files[0]!.annotations[0]!.vertices).toEqual(thinQuad);
+	});
+
+	it("closing the polygon is undoable", () => {
+		const closed = tapAll(drawingState(), [...pentagon, pentagon[0]!]);
+
+		const undone = appReducer(closed, { type: "undo_annotation" });
+
+		expect(undone.general.files[0]!.annotations).toHaveLength(0);
+	});
+
+	it("undo while drawing takes back the last vertex, not an annotation edit", () => {
+		const existing: ImageFile = {
+			...makeFile("f1", "img.png"),
+			annotations: [{ id: "a1", classId: "c1", vertices: pentagon }],
+		};
+		const state = stateWith({
+			ui: {
+				selectedFileId: "f1",
+				activePolygonPoints: pentagon.slice(0, 2),
+				annotationUndoStack: [[]],
+			},
+			general: { files: [existing] },
+		});
+
+		const once = appReducer(state, { type: "undo_annotation" });
+		const twice = appReducer(once, { type: "undo_annotation" });
+
+		expect(once.ui.activePolygonPoints).toEqual(pentagon.slice(0, 1));
+		expect(twice.ui.activePolygonPoints).toBeNull();
+		expect(twice.general.files[0]!.annotations).toHaveLength(1);
+		expect(twice.ui.annotationUndoStack).toHaveLength(1);
+	});
+
+	it("switching modes or files discards the in-progress polygon", () => {
+		const drawing = stateWith({
+			ui: { selectedFileId: "f1", activePolygonPoints: pentagon.slice(0, 2) },
+			general: { files: [makeFile("f1", "a.png"), makeFile("f2", "b.png")] },
+		});
+
+		const modeSwitched = appReducer(drawing, { type: "set_canvas_mode", mode: "lasso" });
+		const navigated = appReducer(drawing, { type: "navigate_file", direction: "forward" });
+		const selected = appReducer(drawing, { type: "select_file", fileId: "f2" });
+
+		expect(modeSwitched.ui.activePolygonPoints).toBeNull();
+		expect(navigated.ui.activePolygonPoints).toBeNull();
+		expect(selected.ui.activePolygonPoints).toBeNull();
+	});
+});
+
 // -- Annotation selection & class change --
 
 describe("select_annotation", () => {

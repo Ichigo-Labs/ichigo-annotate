@@ -59,6 +59,11 @@ export function App() {
 		? (selectedAnnotation.attributes ?? [])
 		: appState.ui.activeAttributes;
 
+	// Undo also takes back the last vertex of an in-progress polygon.
+	const canUndo =
+		appState.ui.annotationUndoStack.length > 0 ||
+		appState.ui.activePolygonPoints !== null;
+
 	// -- Handlers --
 
 	const handleImport = async (rawFiles: File[], replace: boolean) => {
@@ -354,6 +359,7 @@ export function App() {
 					attributes={appState.general.attributes}
 					activeLassoPoints={appState.ui.activeLassoPoints}
 					activeRectPoints={appState.ui.activeRectPoints}
+					activePolygonPoints={appState.ui.activePolygonPoints}
 					activeClassId={appState.ui.activeClassId}
 					selectedAnnotationId={appState.ui.selectedAnnotationId}
 					stretchImage={appState.ui.stretchImage}
@@ -369,6 +375,7 @@ export function App() {
 					onLassoCancel={() => dispatch({ type: "cancel_lasso" })}
 					onBucketFill={handleBucketFill}
 					onRectPoint={(p) => dispatch({ type: "add_rect_point", point: p })}
+					onPolygonPoint={(p) => dispatch({ type: "add_polygon_point", point: p })}
 					onAnnotationMoveStart={(annotationId) => {
 						setIsDraggingAnnotation(true);
 						dispatch({ type: "push_undo_snapshot" });
@@ -444,7 +451,7 @@ export function App() {
 					enabledAttributes={enabledAttributes}
 					attributeTarget={selectedAnnotation ? "annotation" : "default"}
 					canvasMode={appState.ui.canvasMode}
-					canUndo={appState.ui.annotationUndoStack.length > 0}
+					canUndo={canUndo}
 					canRedo={appState.ui.annotationRedoStack.length > 0}
 					position={appState.ui.palettePosition}
 					isDraggingAnnotation={isDraggingAnnotation}

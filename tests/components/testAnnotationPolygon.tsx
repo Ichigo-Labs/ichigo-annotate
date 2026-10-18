@@ -20,7 +20,7 @@ function renderWith(props: Partial<React.ComponentProps<typeof Wrapper>> & { onS
 }
 
 // Wrapper to provide an SVG container and ref.
-function Wrapper(props: { annotation?: typeof annotation & { attributes?: string[] }; attributeAbbreviations?: Map<string, string>; isDrawing?: boolean; isSelected?: boolean; isActiveClass?: boolean; isDeleteMode?: boolean; isPaintMode?: boolean; isTagMode?: boolean; isRectMode?: boolean; onSelect?: (id: string) => void }) {
+function Wrapper(props: { annotation?: typeof annotation & { attributes?: string[] }; attributeAbbreviations?: Map<string, string>; isDrawing?: boolean; isSelected?: boolean; isActiveClass?: boolean; isDeleteMode?: boolean; isPaintMode?: boolean; isTagMode?: boolean; isRectMode?: boolean; isPolygonMode?: boolean; onSelect?: (id: string) => void }) {
 	const svgRef = useRef<SVGSVGElement>(null);
 	return (
 		<svg ref={svgRef} data-testid="test-svg">
@@ -35,6 +35,7 @@ function Wrapper(props: { annotation?: typeof annotation & { attributes?: string
 				isPaintMode={props.isPaintMode ?? false}
 				isTagMode={props.isTagMode ?? false}
 				isRectMode={props.isRectMode ?? false}
+				isPolygonMode={props.isPolygonMode ?? false}
 				onMoveStart={noop}
 				onMove={noop}
 				onMoveEnd={noop}
@@ -60,6 +61,12 @@ describe("AnnotationPolygon", () => {
 
 	it("has pointer-events none when drawing", () => {
 		render(<Wrapper isDrawing={true} />);
+		const g = screen.getByTestId("annotation-polygon");
+		expect(g.style.pointerEvents).toBe("none");
+	});
+
+	it("lets taps through in polygon mode so vertices can land on top of it", () => {
+		render(<Wrapper isPolygonMode={true} />);
 		const g = screen.getByTestId("annotation-polygon");
 		expect(g.style.pointerEvents).toBe("none");
 	});

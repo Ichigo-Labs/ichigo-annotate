@@ -8,6 +8,7 @@ import { polygonizeVertices, translatePolygon } from "../utils/areaUtils";
 import { sortFilesByName } from "../utils/fileSort";
 import { loadFullState, saveFilesDiff, savePrefs } from "../services/appStorage";
 import type { ImageFile } from "../types/appState";
+import { isClosingTap } from "../utils/polygonUtils";
 import {
 	hasMinimumRectSize,
 	isTooNearExistingPoint,
@@ -49,6 +50,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 					annotationUndoStack: [],
 					annotationRedoStack: [],
 					activeRectPoints: null,
+					activePolygonPoints: null,
 				},
 			};
 		case "delete_file":
@@ -139,6 +141,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 				...state,
 				ui: { ...state.ui, activeRectPoints: null },
 			};
+
+		// -- Polygon --
+		case "add_polygon_point":
+			return handleAddPolygonPoint(state, action.point);
 
 		// -- Annotation manipulation --
 		case "select_annotation":
@@ -237,12 +243,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 		case "set_canvas_mode":
 			return {
 				...state,
-				ui: { ...state.ui, canvasMode: action.mode, activeRectPoints: null },
+				ui: {
+					...state.ui,
+					canvasMode: action.mode,
+					activeRectPoints: null,
+					activePolygonPoints: null,
+				},
 			};
 		case "add_annotation":
 			return handleAddAnnotation(pushUndoSnapshot(state), action.vertices);
 		case "undo_annotation":
-			return handleUndoAnnotation(state);
+			return state.ui.activePolygonPoints
+				? handleUndoPolygonPoint(state)
+				: handleUndoAnnotation(state);
 		case "redo_annotation":
 			return handleRedoAnnotation(state);
 		case "push_undo_snapshot":
@@ -647,6 +660,39 @@ function completeRectAnnotation(state: AppState, vertices: Point[]): AppState {
 	};
 }
 
+// Each tap places the next vertex; tapping the first vertex again closes the
+// loop and commits the polygon in tap order.
+function handleAddPolygonPoint(state: AppState, point: Point): AppState {
+	const existing = state.ui.activePolygonPoints ?? [];
+
+	if (isClosingTap(point, existing)) {
+		const cleared = { ...state, ui: { ...state.ui, activePolygonPoints: null } };
+		return handleAddAnnotation(pushUndoSnapshot(cleared), existing);
+	}
+
+	if (isTooNearExistingPoint(point, existing)) {
+		return state;
+	}
+
+	return {
+		...state,
+		ui: { ...state.ui, activePolygonPoints: [...existing, point] },
+	};
+}
+
+// Undo while a polygon is in progress takes back the last vertex instead of
+// an annotation edit; undoing the only vertex abandons the shape.
+function handleUndoPolygonPoint(state: AppState): AppState {
+	const points = state.ui.activePolygonPoints ?? [];
+	return {
+		...state,
+		ui: {
+			...state.ui,
+			activePolygonPoints: points.length > 1 ? points.slice(0, -1) : null,
+		},
+	};
+}
+
 function handleChangeAnnotationClass(
 	state: AppState,
 	fileId: string,
@@ -964,6 +1010,7 @@ function handleNavigateFile(
 			annotationUndoStack: [],
 			annotationRedoStack: [],
 			activeRectPoints: null,
+			activePolygonPoints: null,
 		},
 	};
 }

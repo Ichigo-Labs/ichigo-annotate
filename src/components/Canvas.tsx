@@ -2,6 +2,8 @@ import { useMemo, useRef } from "react";
 import type { Annotation, AnnotationClass, CanvasMode, Point } from "../types/appState";
 import { distanceBetween, isNearlyComplete, isPolygonClosed } from "../utils/areaUtils";
 import { computeAttributeAbbreviations } from "../utils/attributeAbbrev";
+import { sortByPaintOrder } from "../utils/paintOrder";
+import { POLYGON_CLOSE_RADIUS } from "../utils/polygonUtils";
 import { AnnotationPolygon } from "./AnnotationPolygon";
 import styles from "./Canvas.module.css";
 
@@ -12,6 +14,7 @@ interface CanvasProps {
 	attributes: string[];
 	activeLassoPoints: Point[] | null;
 	activeRectPoints: Point[] | null;
+	activePolygonPoints: Point[] | null;
 	activeClassId: string;
 	selectedAnnotationId: string | null;
 	stretchImage: boolean;
@@ -23,6 +26,7 @@ interface CanvasProps {
 	onLassoCancel: () => void;
 	onBucketFill: (point: Point) => void;
 	onRectPoint: (point: Point) => void;
+	onPolygonPoint: (point: Point) => void;
 	onAnnotationMoveStart: (annotationId: string) => void;
 	onAnnotationMove: (annotationId: string, delta: Point) => void;
 	onAnnotationMoveEnd: (annotationId: string, droppedOnTrash: boolean) => void;
@@ -44,6 +48,7 @@ export function Canvas({
 	attributes,
 	activeLassoPoints,
 	activeRectPoints,
+	activePolygonPoints,
 	activeClassId,
 	selectedAnnotationId,
 	stretchImage,
@@ -55,6 +60,7 @@ export function Canvas({
 	onLassoCancel,
 	onBucketFill,
 	onRectPoint,
+	onPolygonPoint,
 	onAnnotationMoveStart,
 	onAnnotationMove,
 	onAnnotationMoveEnd,
@@ -71,11 +77,26 @@ export function Canvas({
 	const isPaintMode = canvasMode === "paint";
 	const isTagMode = canvasMode === "tag";
 	const isRectMode = canvasMode === "rect";
+	const isPolygonMode = canvasMode === "polygon";
+	const isTapMode = isDeleteMode || isPaintMode || isTagMode;
 
 	const attributeAbbreviations = useMemo(
 		() => computeAttributeAbbreviations(attributes),
 		[attributes],
 	);
+
+	// SVG has no z-index: later elements draw on top and take taps first.
+	const orderedAnnotations = useMemo(
+		() => sortByPaintOrder(annotations, classes),
+		[annotations, classes],
+	);
+
+	// The selected annotation is raised above the palette so its handles stay
+	// reachable. Tap modes show no handles, so there it keeps its paint order
+	// and can't shadow a Subtext-box tapped inside it.
+	const elevatedAnnotation = isTapMode
+		? undefined
+		: orderedAnnotations.find((ann) => ann.id === selectedAnnotationId);
 
 	const handleMoveStart = (annotationId: string) => {
 		onLassoCancel();
@@ -102,10 +123,12 @@ export function Canvas({
 	// Navigate forward/backward when clicking on the black margins.
 	const handleContainerClick = (e: React.MouseEvent) => {
 		if (e.target !== e.currentTarget) return;
-		// While a box is mid-draw, a tiny miss just outside the image should not
-		// advance the file and lose the in-progress anchors. Navigation stays
-		// enabled in box mode whenever no anchors have been placed yet.
+		// While a box or polygon is mid-draw, a tiny miss just outside the image
+		// should not advance the file and lose the in-progress anchors.
+		// Navigation stays enabled in these modes whenever no anchors have been
+		// placed yet.
 		if (isRectMode && activeRectPoints && activeRectPoints.length > 0) return;
+		if (isPolygonMode && activePolygonPoints && activePolygonPoints.length > 0) return;
 
 		const rect = e.currentTarget.getBoundingClientRect();
 		const clickX = e.clientX - rect.left;
@@ -142,6 +165,12 @@ export function Canvas({
 		if (isRectMode) {
 			onSelectAnnotation(null);
 			onRectPoint(point);
+			return;
+		}
+
+		if (isPolygonMode) {
+			onSelectAnnotation(null);
+			onPolygonPoint(point);
 			return;
 		}
 
@@ -222,8 +251,8 @@ export function Canvas({
 					onPointerUp={handleSvgPointerUp}
 					data-testid="canvas-svg"
 				>
-					{/* Non-selected annotations */}
-					{annotations.filter((ann) => ann.id !== selectedAnnotationId).map((ann) => (
+					{/* Annotations in paint order, minus the elevated one */}
+					{orderedAnnotations.filter((ann) => ann !== elevatedAnnotation).map((ann) => (
 						<AnnotationPolygon
 							key={ann.id}
 							annotation={ann}
@@ -235,7 +264,8 @@ export function Canvas({
 							isPaintMode={isPaintMode}
 							isTagMode={isTagMode}
 							isRectMode={isRectMode}
-							isSelected={false}
+							isPolygonMode={isPolygonMode}
+							isSelected={ann.id === selectedAnnotationId}
 							onMoveStart={handleMoveStart}
 							onMove={onAnnotationMove}
 							onMoveEnd={handleMoveEnd}
@@ -295,41 +325,88 @@ export function Canvas({
 							))}
 						</>
 					)}
+
+					{/* Polygon-in-progress preview */}
+					{activePolygonPoints && activePolygonPoints.length > 0 && (
+						<>
+							{activePolygonPoints.length > 1 && (
+								<polyline
+									points={activePolygonPoints.map((p) => `${p.x},${p.y}`).join(" ")}
+									fill="none"
+									stroke={activeColor}
+									strokeWidth={0.003}
+									strokeDasharray="0.008 0.004"
+									data-testid="polygon-preview-lines"
+								/>
+							)}
+							{activePolygonPoints.length >= 3 && (
+								<>
+									{/* Faint closing edge: the shape is not committed yet */}
+									<line
+										x1={activePolygonPoints[activePolygonPoints.length - 1]!.x}
+										y1={activePolygonPoints[activePolygonPoints.length - 1]!.y}
+										x2={activePolygonPoints[0]!.x}
+										y2={activePolygonPoints[0]!.y}
+										stroke={activeColor}
+										strokeOpacity={0.5}
+										strokeWidth={0.003}
+										strokeDasharray="0.008 0.004"
+									/>
+									{/* Close target: tapping inside it finishes the shape */}
+									<circle
+										cx={activePolygonPoints[0]!.x}
+										cy={activePolygonPoints[0]!.y}
+										r={POLYGON_CLOSE_RADIUS}
+										fill={`${activeColor}40`}
+										stroke={activeColor}
+										strokeWidth={0.002}
+										data-testid="polygon-close-target"
+									/>
+								</>
+							)}
+							{activePolygonPoints.map((p, i) => (
+								<circle
+									key={i}
+									cx={p.x}
+									cy={p.y}
+									r={0.008}
+									fill={activeColor}
+									data-testid="polygon-preview-dot"
+								/>
+							))}
+						</>
+					)}
 				</svg>
 				{/* Elevated overlay for selected annotation (above CanvasPalette) */}
-				{selectedAnnotationId && annotations.find((ann) => ann.id === selectedAnnotationId) && (
+				{elevatedAnnotation && (
 					<svg
 						ref={elevatedSvgRef}
 						className={styles.svgOverlayElevated}
 						viewBox="0 0 1 1"
 						preserveAspectRatio="none"
 					>
-						{(() => {
-							const ann = annotations.find((a) => a.id === selectedAnnotationId)!;
-							return (
-								<AnnotationPolygon
-									key={ann.id}
-									annotation={ann}
-									classColor={classColor(ann.classId)}
-									attributeAbbreviations={attributeAbbreviations}
-									isDrawing={isDrawing}
-									isActiveClass={ann.classId === activeClassId}
-									isDeleteMode={isDeleteMode}
-									isPaintMode={isPaintMode}
-									isTagMode={isTagMode}
-									isRectMode={isRectMode}
-									isSelected={true}
-									onMoveStart={handleMoveStart}
-									onMove={onAnnotationMove}
-									onMoveEnd={handleMoveEnd}
-									onSelect={onSelectAnnotation}
-									onVertexMoveStart={onVertexMoveStart}
-									onVertexMove={onVertexMove}
-									onVertexMoveEnd={onVertexMoveEnd}
-									svgRef={elevatedSvgRef}
-								/>
-							);
-						})()}
+						<AnnotationPolygon
+							key={elevatedAnnotation.id}
+							annotation={elevatedAnnotation}
+							classColor={classColor(elevatedAnnotation.classId)}
+							attributeAbbreviations={attributeAbbreviations}
+							isDrawing={isDrawing}
+							isActiveClass={elevatedAnnotation.classId === activeClassId}
+							isDeleteMode={isDeleteMode}
+							isPaintMode={isPaintMode}
+							isTagMode={isTagMode}
+							isRectMode={isRectMode}
+							isPolygonMode={isPolygonMode}
+							isSelected={true}
+							onMoveStart={handleMoveStart}
+							onMove={onAnnotationMove}
+							onMoveEnd={handleMoveEnd}
+							onSelect={onSelectAnnotation}
+							onVertexMoveStart={onVertexMoveStart}
+							onVertexMove={onVertexMove}
+							onVertexMoveEnd={onVertexMoveEnd}
+							svgRef={elevatedSvgRef}
+						/>
 					</svg>
 				)}
 			</div>

@@ -109,6 +109,19 @@ describe("CanvasPalette", () => {
 		expect(screen.getByTestId("mode-lasso").className).not.toContain("iconBtnActive");
 	});
 
+	it("clicking the polygon button calls onModeChange with polygon", () => {
+		const onModeChange = vi.fn();
+		render(<CanvasPalette {...defaultProps} onModeChange={onModeChange} />);
+		fireEvent.click(screen.getByTestId("mode-polygon"));
+		expect(onModeChange).toHaveBeenCalledWith("polygon");
+	});
+
+	it("polygon button is highlighted when polygon mode is active", () => {
+		render(<CanvasPalette {...defaultProps} canvasMode="polygon" />);
+		expect(screen.getByTestId("mode-polygon").className).toContain("iconBtnActive");
+		expect(screen.getByTestId("mode-rect").className).not.toContain("iconBtnActive");
+	});
+
 });
 
 // -- Attribute pills --
