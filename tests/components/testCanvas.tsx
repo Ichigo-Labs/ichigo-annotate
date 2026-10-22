@@ -50,6 +50,8 @@ const defaultProps = {
 	onVertexMove: noop,
 	onVertexMoveEnd: noop,
 	onNavigate: noop,
+	view: { zoom: 1, x: 0, y: 0 },
+	onViewChange: noop,
 };
 
 describe("Canvas", () => {
@@ -286,5 +288,205 @@ describe("Canvas polygon mode", () => {
 
 		fireEvent.click(screen.getByTestId("canvas"));
 		expect(onNavigate).not.toHaveBeenCalled();
+	});
+});
+
+describe("Canvas pinch zoom", () => {
+	// Gives the image box, and the overlay drawn over it, a 200×100 size.
+	const mockImageBox = () => {
+		const svg = screen.getByTestId("canvas-svg");
+		const rect = { left: 0, top: 0, width: 200, height: 100 } as DOMRect;
+		vi.spyOn(svg, "getBoundingClientRect").mockReturnValue(rect);
+		vi.spyOn(svg.parentElement!, "getBoundingClientRect").mockReturnValue(rect);
+		return svg;
+	};
+
+	const finger = (id: number, x: number, y: number, isPrimary = id === 1) => ({
+		pointerType: "touch",
+		pointerId: id,
+		isPrimary,
+		clientX: x,
+		clientY: y,
+	});
+
+	it("zooms around the fingers as two fingers spread", () => {
+		const onViewChange = vi.fn();
+		render(<Canvas {...defaultProps} canvasMode="polygon" onViewChange={onViewChange} />);
+		const svg = mockImageBox();
+
+		fireEvent.pointerDown(svg, finger(1, 80, 50));
+		fireEvent.pointerDown(svg, finger(2, 120, 50));
+		fireEvent.pointerMove(svg, finger(1, 60, 50));
+		fireEvent.pointerMove(svg, finger(2, 140, 50));
+
+		expect(onViewChange).toHaveBeenLastCalledWith({ zoom: 2, x: -0.5, y: -0.5 });
+	});
+
+	it("places a finger's polygon point when it lifts, not when it lands", () => {
+		const onPolygonPoint = vi.fn();
+		render(<Canvas {...defaultProps} canvasMode="polygon" onPolygonPoint={onPolygonPoint} />);
+		const svg = mockImageBox();
+
+		fireEvent.pointerDown(svg, finger(1, 50, 25));
+		const placedOnPress = onPolygonPoint.mock.calls.length;
+		fireEvent.pointerUp(svg, finger(1, 50, 25));
+
+		expect(placedOnPress).toBe(0);
+		expect(onPolygonPoint).toHaveBeenCalledWith({ x: 0.25, y: 0.25 });
+	});
+
+	it("places nothing when a second finger turns the touch into a pinch", () => {
+		const onPolygonPoint = vi.fn();
+		render(<Canvas {...defaultProps} canvasMode="polygon" onPolygonPoint={onPolygonPoint} />);
+		const svg = mockImageBox();
+
+		fireEvent.pointerDown(svg, finger(1, 50, 25));
+		fireEvent.pointerDown(svg, finger(2, 100, 50));
+		fireEvent.pointerUp(svg, finger(2, 100, 50));
+		fireEvent.pointerUp(svg, finger(1, 50, 25));
+
+		expect(onPolygonPoint).not.toHaveBeenCalled();
+	});
+
+	it("still places a pen's polygon point on press", () => {
+		const onPolygonPoint = vi.fn();
+		render(<Canvas {...defaultProps} canvasMode="polygon" onPolygonPoint={onPolygonPoint} />);
+		const svg = mockImageBox();
+
+		fireEvent.pointerDown(svg, { pointerType: "pen", pointerId: 5, clientX: 50, clientY: 25 });
+
+		expect(onPolygonPoint).toHaveBeenCalledWith({ x: 0.25, y: 0.25 });
+	});
+
+	it("keeps the selection when a pinch starts on the background", () => {
+		const onSelectAnnotation = vi.fn();
+		render(
+			<Canvas
+				{...defaultProps}
+				annotations={annotations}
+				selectedAnnotationId="a1"
+				onSelectAnnotation={onSelectAnnotation}
+			/>,
+		);
+		const svg = mockImageBox();
+
+		fireEvent.pointerDown(svg, finger(1, 180, 80));
+		fireEvent.pointerDown(svg, finger(2, 190, 90));
+		fireEvent.pointerUp(svg, finger(1, 180, 80));
+		fireEvent.pointerUp(svg, finger(2, 190, 90));
+
+		expect(onSelectAnnotation).not.toHaveBeenCalled();
+	});
+
+	it("cancels the lasso the first finger started", () => {
+		const onLassoCancel = vi.fn();
+		render(
+			<Canvas
+				{...defaultProps}
+				activeLassoPoints={[{ x: 0.4, y: 0.5 }]}
+				onLassoCancel={onLassoCancel}
+			/>,
+		);
+		const svg = mockImageBox();
+
+		fireEvent.pointerDown(svg, finger(1, 80, 50));
+		fireEvent.pointerDown(svg, finger(2, 120, 50));
+
+		expect(onLassoCancel).toHaveBeenCalled();
+	});
+
+	it("does not delete a shape a pinch starts on in delete mode", () => {
+		const onSelectAnnotation = vi.fn();
+		render(
+			<Canvas
+				{...defaultProps}
+				canvasMode="delete"
+				annotations={annotations}
+				onSelectAnnotation={onSelectAnnotation}
+			/>,
+		);
+		const svg = mockImageBox();
+		const shape = screen.getByTestId("annotation-polygon").querySelector("polygon")!;
+
+		fireEvent.pointerDown(shape, finger(1, 60, 20));
+		fireEvent.pointerDown(svg, finger(2, 150, 80));
+		fireEvent.pointerUp(shape, finger(1, 60, 20));
+		fireEvent.pointerUp(svg, finger(2, 150, 80));
+
+		expect(onSelectAnnotation).not.toHaveBeenCalled();
+	});
+
+	it("ignores taps beside the image while zoomed in", () => {
+		const onNavigate = vi.fn();
+		render(
+			<Canvas {...defaultProps} view={{ zoom: 2, x: -0.5, y: -0.5 }} onNavigate={onNavigate} />,
+		);
+
+		fireEvent.click(screen.getByTestId("canvas"));
+
+		expect(onNavigate).not.toHaveBeenCalled();
+	});
+
+	it("ignores the click a pinch leaves behind, but not the next tap", () => {
+		const onNavigate = vi.fn();
+		render(<Canvas {...defaultProps} onNavigate={onNavigate} />);
+		const container = screen.getByTestId("canvas");
+
+		fireEvent.pointerDown(container, finger(1, 10, 10));
+		fireEvent.pointerDown(container, finger(2, 30, 10));
+		fireEvent.pointerUp(container, finger(2, 30, 10));
+		fireEvent.pointerUp(container, finger(1, 10, 10));
+		fireEvent.click(container);
+		const navigatedAfterPinch = onNavigate.mock.calls.length;
+		fireEvent.pointerDown(container, finger(3, 10, 10, true));
+		fireEvent.pointerUp(container, finger(3, 10, 10, true));
+		fireEvent.click(container);
+
+		expect(navigatedAfterPinch).toBe(0);
+		expect(onNavigate).toHaveBeenCalledOnce();
+	});
+
+	it("draws the image and both overlays at the zoomed view", () => {
+		render(
+			<Canvas
+				{...defaultProps}
+				annotations={annotations}
+				selectedAnnotationId="a1"
+				view={{ zoom: 2, x: -0.5, y: -0.25 }}
+			/>,
+		);
+		const layers = [
+			screen.getByAltText("Annotation target"),
+			...document.querySelectorAll("svg[viewBox='0 0 1 1']"),
+		] as (HTMLElement | SVGElement)[];
+
+		expect(layers).toHaveLength(3);
+		for (const layer of layers) {
+			expect(layer.style.transform).toBe("translate(-50%, -25%) scale(2)");
+		}
+	});
+
+	it("leaves the layers untransformed when fitted", () => {
+		render(<Canvas {...defaultProps} />);
+
+		expect(screen.getByTestId("canvas-svg").style.transform).toBe("");
+	});
+
+	it("keeps preview dots and the close target the same size on screen", () => {
+		render(
+			<Canvas
+				{...defaultProps}
+				canvasMode="polygon"
+				view={{ zoom: 2, x: 0, y: 0 }}
+				activePolygonPoints={[
+					{ x: 0.2, y: 0.2 },
+					{ x: 0.6, y: 0.2 },
+					{ x: 0.4, y: 0.6 },
+				]}
+			/>,
+		);
+
+		expect(screen.getByTestId("polygon-close-target").getAttribute("r")).toBe("0.0075");
+		expect(screen.getAllByTestId("polygon-preview-dot")[0]!.getAttribute("r")).toBe("0.004");
 	});
 });

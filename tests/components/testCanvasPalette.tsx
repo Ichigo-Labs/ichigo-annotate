@@ -30,6 +30,8 @@ const defaultProps = {
 	onRedo: vi.fn(),
 	canUndo: false,
 	canRedo: false,
+	canResetView: false,
+	onResetView: vi.fn(),
 	onNavigate: vi.fn(),
 	onDragEnd: vi.fn(),
 };
@@ -120,6 +122,18 @@ describe("CanvasPalette", () => {
 		render(<CanvasPalette {...defaultProps} canvasMode="polygon" />);
 		expect(screen.getByTestId("mode-polygon").className).toContain("iconBtnActive");
 		expect(screen.getByTestId("mode-rect").className).not.toContain("iconBtnActive");
+	});
+
+	it("disables the reset zoom button until the canvas is zoomed", () => {
+		render(<CanvasPalette {...defaultProps} canResetView={false} />);
+		expect(screen.getByTestId("reset-zoom-btn")).toBeDisabled();
+	});
+
+	it("resets the zoom when the reset button is clicked", () => {
+		const onResetView = vi.fn();
+		render(<CanvasPalette {...defaultProps} canResetView={true} onResetView={onResetView} />);
+		fireEvent.click(screen.getByTestId("reset-zoom-btn"));
+		expect(onResetView).toHaveBeenCalledOnce();
 	});
 
 });

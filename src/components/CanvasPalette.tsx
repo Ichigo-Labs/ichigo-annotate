@@ -14,6 +14,7 @@ interface CanvasPaletteProps {
 	canvasMode: CanvasMode;
 	canUndo: boolean;
 	canRedo: boolean;
+	canResetView: boolean;
 	position: { x: number; y: number };
 	isDraggingAnnotation: boolean;
 	trashRef: React.RefObject<HTMLDivElement | null>;
@@ -26,6 +27,7 @@ interface CanvasPaletteProps {
 	onModeChange: (mode: CanvasMode) => void;
 	onUndo: () => void;
 	onRedo: () => void;
+	onResetView: () => void;
 	onNavigate: (direction: "forward" | "backward") => void;
 	onDragEnd: (position: { x: number; y: number }) => void;
 }
@@ -39,6 +41,7 @@ export function CanvasPalette({
 	canvasMode,
 	canUndo,
 	canRedo,
+	canResetView,
 	position,
 	isDraggingAnnotation,
 	trashRef,
@@ -51,6 +54,7 @@ export function CanvasPalette({
 	onModeChange,
 	onUndo,
 	onRedo,
+	onResetView,
 	onNavigate,
 	onDragEnd,
 }: CanvasPaletteProps) {
@@ -411,6 +415,19 @@ export function CanvasPalette({
 					</button>
 				)}
 				<div className={styles.spacer} />
+				<button
+					className={styles.iconBtn}
+					onClick={onResetView}
+					disabled={!canResetView}
+					aria-label="Reset zoom"
+					title="Reset zoom (pinch with two fingers to zoom and pan)"
+					data-testid="reset-zoom-btn"
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+						{/* Fit-to-screen corners */}
+						<path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/>
+					</svg>
+				</button>
 				<button
 					className={styles.iconBtn}
 					onClick={() => onNavigate("backward")}

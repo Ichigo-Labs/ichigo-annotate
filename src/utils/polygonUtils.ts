@@ -7,10 +7,14 @@ import { distanceBetween } from "./areaUtils";
 export const POLYGON_CLOSE_RADIUS = 0.015;
 
 // True when tapping `point` should close the polygon: it already has 3+
-// vertices and the tap lands on the first one.
-export function isClosingTap(point: Point, points: Point[]): boolean {
+// vertices and the tap lands within `radius` of the first one.
+export function isClosingTap(
+	point: Point,
+	points: Point[],
+	radius: number = POLYGON_CLOSE_RADIUS,
+): boolean {
 	return (
 		points.length >= 3 &&
-		distanceBetween(point, points[0]!) < POLYGON_CLOSE_RADIUS
+		distanceBetween(point, points[0]!) < radius
 	);
 }

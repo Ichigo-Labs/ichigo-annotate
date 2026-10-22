@@ -42,6 +42,14 @@ export interface Toast {
 
 // --- UI state (view-specific) ---
 
+// Zoom and pan of the canvas image. `x`/`y` translate the zoomed image as a
+// fraction of its unzoomed on-screen box, so the view survives resizes.
+export interface CanvasView {
+	zoom: number;
+	x: number;
+	y: number;
+}
+
 export interface UIState {
 	sidebarWidthPercent: number;
 	sidebarCollapsed: boolean;
@@ -57,6 +65,7 @@ export interface UIState {
 	stretchImage: boolean;
 	twoTapBox: boolean;
 	canvasMode: CanvasMode;
+	canvasView: CanvasView;
 	annotationUndoStack: Annotation[][];
 	annotationRedoStack: Annotation[][];
 	draggingAnnotationId: string | null;
@@ -164,6 +173,8 @@ export type AppAction =
 	  }
 	| { type: "remove_toast"; id: string }
 	| { type: "set_canvas_mode"; mode: CanvasMode }
+	| { type: "set_canvas_view"; view: CanvasView }
+	| { type: "reset_canvas_view" }
 	| { type: "add_annotation"; vertices: Point[] }
 	| { type: "undo_annotation" }
 	| { type: "redo_annotation" }
@@ -180,6 +191,8 @@ export const DEFAULT_CLASS: AnnotationClass = {
 export const DEFAULT_ATTRIBUTES = ["italic", "bold", "handwritten"];
 
 export const SIDEBAR_COLLAPSE_THRESHOLD = 5;
+
+export const DEFAULT_CANVAS_VIEW: CanvasView = { zoom: 1, x: 0, y: 0 };
 
 // --- Initial state factory ---
 
@@ -200,6 +213,7 @@ export function createInitialState(): AppState {
 			stretchImage: true,
 			twoTapBox: false,
 			canvasMode: "lasso" as const,
+			canvasView: DEFAULT_CANVAS_VIEW,
 			annotationUndoStack: [],
 			annotationRedoStack: [],
 			draggingAnnotationId: null,

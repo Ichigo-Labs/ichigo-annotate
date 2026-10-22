@@ -15,6 +15,9 @@ interface AnnotationPolygonProps {
 	isTagMode: boolean;
 	isRectMode: boolean;
 	isPolygonMode: boolean;
+	// Canvas zoom; strokes, handles and the badge shrink by it to keep their
+	// on-screen size.
+	zoom: number;
 	onMoveStart: (annotationId: string) => void;
 	onMove: (annotationId: string, delta: Point) => void;
 	onMoveEnd: (annotationId: string, screenX: number, screenY: number) => void;
@@ -53,6 +56,7 @@ export function AnnotationPolygon({
 	isTagMode,
 	isRectMode,
 	isPolygonMode,
+	zoom,
 	onMoveStart,
 	onMove,
 	onMoveEnd,
@@ -70,12 +74,20 @@ export function AnnotationPolygon({
 	// -- Polygon move via hold --
 
 	const pointerIdRef = useRef<number | null>(null);
+	// A finger's tap in the tap-to-act modes fires on lift, so a second
+	// finger can still turn the touch into a pinch.
+	const pendingTapRef = useRef<number | null>(null);
 
 	const handlePolyDown = (e: React.PointerEvent) => {
 		// Tap-to-act modes fire onSelect on any annotation, regardless of class.
 		if (isDeleteMode || isPaintMode || isTagMode) {
 			e.stopPropagation();
-			onSelect(annotation.id);
+			if (e.pointerType === "touch") {
+				(e.target as Element).setPointerCapture(e.pointerId);
+				pendingTapRef.current = e.pointerId;
+			} else {
+				onSelect(annotation.id);
+			}
 			return;
 		}
 
@@ -116,6 +128,12 @@ export function AnnotationPolygon({
 	};
 
 	const handlePolyUp = (e: React.PointerEvent) => {
+		if (pendingTapRef.current === e.pointerId) {
+			e.stopPropagation();
+			pendingTapRef.current = null;
+			onSelect(annotation.id);
+			return;
+		}
 		if (holdTimer.current) clearTimeout(holdTimer.current);
 		if (isDragging.current) {
 			e.stopPropagation();
@@ -129,13 +147,29 @@ export function AnnotationPolygon({
 		clicked.current = false;
 	};
 
+	// A pinch or the browser took the pointer over: drop a pending tap or
+	// hold, and end a move where it is, never on the trash.
+	const handlePolyCancel = (e: React.PointerEvent) => {
+		if (pendingTapRef.current === e.pointerId) pendingTapRef.current = null;
+		if (holdTimer.current) clearTimeout(holdTimer.current);
+		clicked.current = false;
+		if (isDragging.current) {
+			isDragging.current = false;
+			pointerIdRef.current = null;
+			onMoveEnd(annotation.id, Number.NaN, Number.NaN);
+		}
+	};
+
 	// -- Vertex handle dragging --
 
 	const draggingVertexRef = useRef<number | null>(null);
+	// Where the dragged vertex started, to put it back on a cancel.
+	const vertexOriginRef = useRef<Point | null>(null);
 
 	const handleVertexDown = (e: React.PointerEvent, vertexIndex: number) => {
 		e.stopPropagation();
 		draggingVertexRef.current = vertexIndex;
+		vertexOriginRef.current = annotation.vertices[vertexIndex] ?? null;
 		(e.target as Element).setPointerCapture(e.pointerId);
 		onVertexMoveStart?.(annotation.id);
 	};
@@ -152,6 +186,17 @@ export function AnnotationPolygon({
 		if (draggingVertexRef.current === null) return;
 		e.stopPropagation();
 		draggingVertexRef.current = null;
+		onVertexMoveEnd?.(annotation.id);
+	};
+
+	// A cancelled drag (e.g. the finger turned out to start a pinch) puts the
+	// vertex back where it was.
+	const handleVertexCancel = (e: React.PointerEvent) => {
+		const index = draggingVertexRef.current;
+		if (index === null) return;
+		e.stopPropagation();
+		draggingVertexRef.current = null;
+		if (vertexOriginRef.current) onVertexMove?.(annotation.id, index, vertexOriginRef.current);
 		onVertexMoveEnd?.(annotation.id);
 	};
 
@@ -183,7 +228,7 @@ export function AnnotationPolygon({
 			{isSelected && (
 				<defs>
 					<filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
-						<feGaussianBlur in="SourceGraphic" stdDeviation="0.012" result="blur" />
+						<feGaussianBlur in="SourceGraphic" stdDeviation={0.012 / zoom} result="blur" />
 						<feComposite in="blur" in2="blur" operator="over" />
 					</filter>
 				</defs>
@@ -194,7 +239,7 @@ export function AnnotationPolygon({
 					points={pointsStr}
 					fill={`${classColor}80`}
 					stroke="white"
-					strokeWidth={0.01}
+					strokeWidth={0.01 / zoom}
 					filter={`url(#${filterId})`}
 					data-testid="selection-indicator"
 				/>
@@ -204,10 +249,11 @@ export function AnnotationPolygon({
 				points={pointsStr}
 				fill={`${classColor}40`}
 				stroke={isSelected ? "white" : classColor}
-				strokeWidth={isSelected ? 0.004 : 0.003}
+				strokeWidth={(isSelected ? 0.004 : 0.003) / zoom}
 				onPointerDown={handlePolyDown}
 				onPointerMove={handlePolyMove}
 				onPointerUp={handlePolyUp}
+				onPointerCancel={handlePolyCancel}
 				style={{ cursor: isTapMode ? "pointer" : (isDrawing || !isActiveClass ? "default" : "pointer") }}
 			>
 				{/* Native tooltip listing style attributes on hover */}
@@ -218,13 +264,13 @@ export function AnnotationPolygon({
 			{/* Attribute badge — unique abbreviation of each style attribute */}
 			{attrLabel && (
 				<text
-					x={labelX + 0.004}
-					y={labelY + 0.004}
-					fontSize={0.018}
+					x={labelX + 0.004 / zoom}
+					y={labelY + 0.004 / zoom}
+					fontSize={0.018 / zoom}
 					fontWeight="bold"
 					fill="white"
 					stroke="rgba(0,0,0,0.7)"
-					strokeWidth={0.001}
+					strokeWidth={0.001 / zoom}
 					paintOrder="stroke"
 					dominantBaseline="hanging"
 					style={{ pointerEvents: "none", userSelect: "none" }}
@@ -239,14 +285,15 @@ export function AnnotationPolygon({
 					key={i}
 					cx={v.x}
 					cy={v.y}
-					r={VERTEX_RADIUS}
+					r={VERTEX_RADIUS / zoom}
 					fill="white"
 					stroke={classColor}
-					strokeWidth={0.0015}
+					strokeWidth={0.0015 / zoom}
 					style={{ cursor: "grab" }}
 					onPointerDown={(e) => handleVertexDown(e, i)}
 					onPointerMove={handleVertexMove}
 					onPointerUp={handleVertexUp}
+					onPointerCancel={handleVertexCancel}
 				/>
 			))}
 		</g>

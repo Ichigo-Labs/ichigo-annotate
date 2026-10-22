@@ -635,6 +635,93 @@ describe("polygon lifecycle", () => {
 	});
 });
 
+// -- Canvas view --
+
+describe("canvas view", () => {
+	const fitted = { zoom: 1, x: 0, y: 0 };
+	const zoomed = { zoom: 4, x: -1, y: -2 };
+
+	const viewState = (zoom: number, ui: Partial<AppState["ui"]> = {}) =>
+		stateWith({
+			ui: { selectedFileId: "f1", canvasView: { zoom, x: 0, y: 0 }, ...ui },
+			general: { files: [makeFile("f1", "a.png")] },
+		});
+
+	it("stores the pinched view and resets it on request", () => {
+		const state = appReducer(createInitialState(), { type: "set_canvas_view", view: zoomed });
+		const reset = appReducer(state, { type: "reset_canvas_view" });
+
+		expect(state.ui.canvasView).toEqual(zoomed);
+		expect(reset.ui.canvasView).toEqual(fitted);
+	});
+
+	it("opens every newly shown image fitted to the screen", () => {
+		const state = stateWith({
+			ui: { selectedFileId: "f1", canvasView: zoomed },
+			general: { files: [makeFile("f1", "a.png"), makeFile("f2", "b.png")] },
+		});
+
+		const selected = appReducer(state, { type: "select_file", fileId: "f2" });
+		const navigated = appReducer(state, { type: "navigate_file", direction: "forward" });
+		const deleted = appReducer(state, { type: "delete_file", fileId: "f1" });
+
+		expect(selected.ui.canvasView).toEqual(fitted);
+		expect(navigated.ui.canvasView).toEqual(fitted);
+		expect(deleted.ui.canvasView).toEqual(fitted);
+	});
+
+	it("keeps the view while editing the same image", () => {
+		const state = viewState(4, { canvasMode: "polygon" });
+
+		const next = appReducer(state, { type: "add_polygon_point", point: { x: 0.5, y: 0.5 } });
+
+		expect(next.ui.canvasView).toBe(state.ui.canvasView);
+	});
+
+	it("lets polygon vertices sit closer together when zoomed in", () => {
+		const tapPair = (zoom: number) =>
+			[{ x: 0.5, y: 0.5 }, { x: 0.505, y: 0.5 }].reduce(
+				(s, point) => appReducer(s, { type: "add_polygon_point", point }),
+				viewState(zoom),
+			);
+
+		expect(tapPair(1).ui.activePolygonPoints).toHaveLength(1);
+		expect(tapPair(4).ui.activePolygonPoints).toHaveLength(2);
+	});
+
+	it("shrinks the polygon close target when zoomed in", () => {
+		const triangle = [
+			{ x: 0.2, y: 0.2 },
+			{ x: 0.6, y: 0.2 },
+			{ x: 0.4, y: 0.6 },
+		];
+		const nearFirst = { x: 0.21, y: 0.2 };
+		const tapAt = (zoom: number) =>
+			appReducer(viewState(zoom, { activePolygonPoints: triangle }), {
+				type: "add_polygon_point",
+				point: nearFirst,
+			});
+
+		const fittedResult = tapAt(1);
+		const zoomedResult = tapAt(4);
+
+		expect(fittedResult.general.files[0]!.annotations).toHaveLength(1);
+		expect(zoomedResult.general.files[0]!.annotations).toHaveLength(0);
+		expect(zoomedResult.ui.activePolygonPoints).toEqual([...triangle, nearFirst]);
+	});
+
+	it("accepts a smaller two-tap box when zoomed in", () => {
+		const tapBox = (zoom: number) =>
+			[{ x: 0.5, y: 0.5 }, { x: 0.506, y: 0.506 }].reduce(
+				(s, point) => appReducer(s, { type: "add_rect_point", point }),
+				viewState(zoom, { twoTapBox: true }),
+			);
+
+		expect(tapBox(1).general.files[0]!.annotations).toHaveLength(0);
+		expect(tapBox(4).general.files[0]!.annotations).toHaveLength(1);
+	});
+});
+
 // -- Annotation selection & class change --
 
 describe("select_annotation", () => {

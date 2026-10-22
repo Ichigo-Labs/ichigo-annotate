@@ -364,6 +364,7 @@ export function App() {
 					selectedAnnotationId={appState.ui.selectedAnnotationId}
 					stretchImage={appState.ui.stretchImage}
 					canvasMode={appState.ui.canvasMode}
+					view={appState.ui.canvasView}
 					trashRef={trashRef}
 					onLassoStart={(p) =>
 						dispatch({ type: "start_lasso", point: p })
@@ -443,6 +444,9 @@ export function App() {
 					onNavigate={(dir) =>
 						dispatch({ type: "navigate_file", direction: dir })
 					}
+					onViewChange={(view) =>
+						dispatch({ type: "set_canvas_view", view })
+					}
 				/>
 				<CanvasPalette
 					classes={appState.general.classes}
@@ -453,6 +457,7 @@ export function App() {
 					canvasMode={appState.ui.canvasMode}
 					canUndo={canUndo}
 					canRedo={appState.ui.annotationRedoStack.length > 0}
+					canResetView={appState.ui.canvasView.zoom > 1}
 					position={appState.ui.palettePosition}
 					isDraggingAnnotation={isDraggingAnnotation}
 					trashRef={trashRef}
@@ -477,6 +482,7 @@ export function App() {
 					}
 					onUndo={() => dispatch({ type: "undo_annotation" })}
 					onRedo={() => dispatch({ type: "redo_annotation" })}
+					onResetView={() => dispatch({ type: "reset_canvas_view" })}
 					onNavigate={(dir) =>
 						dispatch({ type: "navigate_file", direction: dir })
 					}

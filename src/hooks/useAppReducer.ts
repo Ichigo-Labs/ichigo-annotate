@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef } from "react";
 import type { AppAction, AppState, Point } from "../types/appState";
 import {
+	DEFAULT_CANVAS_VIEW,
 	SIDEBAR_COLLAPSE_THRESHOLD,
 	createInitialState,
 } from "../types/appState";
@@ -8,8 +9,9 @@ import { polygonizeVertices, translatePolygon } from "../utils/areaUtils";
 import { sortFilesByName } from "../utils/fileSort";
 import { loadFullState, saveFilesDiff, savePrefs } from "../services/appStorage";
 import type { ImageFile } from "../types/appState";
-import { isClosingTap } from "../utils/polygonUtils";
+import { POLYGON_CLOSE_RADIUS, isClosingTap } from "../utils/polygonUtils";
 import {
+	RECT_MIN_POINT_DISTANCE,
 	hasMinimumRectSize,
 	isTooNearExistingPoint,
 	orderRectVertices,
@@ -19,6 +21,14 @@ import {
 // --- Reducer (exported for direct testing) ---
 
 export function appReducer(state: AppState, action: AppAction): AppState {
+	const next = reduceAction(state, action);
+	// Every image opens fitted to the screen, however it was switched to.
+	return next.ui.selectedFileId !== state.ui.selectedFileId
+		? { ...next, ui: { ...next.ui, canvasView: DEFAULT_CANVAS_VIEW } }
+		: next;
+}
+
+function reduceAction(state: AppState, action: AppAction): AppState {
 	switch (action.type) {
 		case "hydrate":
 			return action.state;
@@ -238,6 +248,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 					toasts: state.ui.toasts.filter((t) => t.id !== action.id),
 				},
 			};
+
+		// -- Canvas view --
+		case "set_canvas_view":
+			return { ...state, ui: { ...state.ui, canvasView: action.view } };
+		case "reset_canvas_view":
+			return { ...state, ui: { ...state.ui, canvasView: DEFAULT_CANVAS_VIEW } };
 
 		// -- Canvas mode --
 		case "set_canvas_mode":
@@ -610,9 +626,15 @@ function handleCompleteLasso(state: AppState): AppState {
 	};
 }
 
+// Distance rules for tapped points are on-screen sizes: zooming in shrinks
+// them in image terms, so points can be placed closer together.
+function onScreen(state: AppState, distance: number): number {
+	return distance / state.ui.canvasView.zoom;
+}
+
 function handleAddRectPoint(state: AppState, point: Point): AppState {
 	const existing = state.ui.activeRectPoints ?? [];
-	if (isTooNearExistingPoint(point, existing)) {
+	if (isTooNearExistingPoint(point, existing, onScreen(state, RECT_MIN_POINT_DISTANCE))) {
 		return state;
 	}
 
@@ -632,7 +654,7 @@ function completeRectAnnotation(state: AppState, vertices: Point[]): AppState {
 	if (!state.ui.selectedFileId) {
 		return { ...state, ui: { ...state.ui, activeRectPoints: null } };
 	}
-	if (!hasMinimumRectSize(vertices)) {
+	if (!hasMinimumRectSize(vertices, onScreen(state, RECT_MIN_POINT_DISTANCE))) {
 		return state;
 	}
 
@@ -665,12 +687,12 @@ function completeRectAnnotation(state: AppState, vertices: Point[]): AppState {
 function handleAddPolygonPoint(state: AppState, point: Point): AppState {
 	const existing = state.ui.activePolygonPoints ?? [];
 
-	if (isClosingTap(point, existing)) {
+	if (isClosingTap(point, existing, onScreen(state, POLYGON_CLOSE_RADIUS))) {
 		const cleared = { ...state, ui: { ...state.ui, activePolygonPoints: null } };
 		return handleAddAnnotation(pushUndoSnapshot(cleared), existing);
 	}
 
-	if (isTooNearExistingPoint(point, existing)) {
+	if (isTooNearExistingPoint(point, existing, onScreen(state, RECT_MIN_POINT_DISTANCE))) {
 		return state;
 	}
 

@@ -20,7 +20,7 @@ function renderWith(props: Partial<React.ComponentProps<typeof Wrapper>> & { onS
 }
 
 // Wrapper to provide an SVG container and ref.
-function Wrapper(props: { annotation?: typeof annotation & { attributes?: string[] }; attributeAbbreviations?: Map<string, string>; isDrawing?: boolean; isSelected?: boolean; isActiveClass?: boolean; isDeleteMode?: boolean; isPaintMode?: boolean; isTagMode?: boolean; isRectMode?: boolean; isPolygonMode?: boolean; onSelect?: (id: string) => void }) {
+function Wrapper(props: { annotation?: typeof annotation & { attributes?: string[] }; attributeAbbreviations?: Map<string, string>; isDrawing?: boolean; isSelected?: boolean; isActiveClass?: boolean; isDeleteMode?: boolean; isPaintMode?: boolean; isTagMode?: boolean; isRectMode?: boolean; isPolygonMode?: boolean; zoom?: number; onSelect?: (id: string) => void; onMoveEnd?: (id: string, x: number, y: number) => void; onVertexMove?: (id: string, index: number, position: { x: number; y: number }) => void; onVertexMoveEnd?: (id: string) => void }) {
 	const svgRef = useRef<SVGSVGElement>(null);
 	return (
 		<svg ref={svgRef} data-testid="test-svg">
@@ -36,10 +36,14 @@ function Wrapper(props: { annotation?: typeof annotation & { attributes?: string
 				isTagMode={props.isTagMode ?? false}
 				isRectMode={props.isRectMode ?? false}
 				isPolygonMode={props.isPolygonMode ?? false}
+				zoom={props.zoom ?? 1}
 				onMoveStart={noop}
 				onMove={noop}
-				onMoveEnd={noop}
+				onMoveEnd={props.onMoveEnd ?? noop}
 				onSelect={props.onSelect ?? noop}
+				onVertexMoveStart={noop}
+				onVertexMove={props.onVertexMove ?? noop}
+				onVertexMoveEnd={props.onVertexMoveEnd ?? noop}
 				svgRef={svgRef}
 			/>
 		</svg>
@@ -110,5 +114,80 @@ describe("AnnotationPolygon", () => {
 			annotation: { ...annotation, attributes: ["has-border"] },
 		});
 		expect(screen.getByTestId("annotation-attr-badge").textContent).toBe("HB");
+	});
+});
+
+describe("AnnotationPolygon touch and zoom", () => {
+	const touch = { pointerType: "touch", pointerId: 1, isPrimary: true };
+
+	it("acts on a finger tap in delete mode only once the finger lifts", () => {
+		const onSelect = vi.fn();
+		renderWith({ isDeleteMode: true, onSelect });
+		const polygon = screen.getByTestId("annotation-polygon").querySelector("polygon")!;
+
+		fireEvent.pointerDown(polygon, touch);
+		const actedOnPress = onSelect.mock.calls.length;
+		fireEvent.pointerUp(polygon, touch);
+
+		expect(actedOnPress).toBe(0);
+		expect(onSelect).toHaveBeenCalledWith("a1");
+	});
+
+	it("drops a finger tap that gets cancelled", () => {
+		const onSelect = vi.fn();
+		renderWith({ isDeleteMode: true, onSelect });
+		const polygon = screen.getByTestId("annotation-polygon").querySelector("polygon")!;
+
+		fireEvent.pointerDown(polygon, touch);
+		fireEvent.pointerCancel(polygon, touch);
+		fireEvent.pointerUp(polygon, touch);
+
+		expect(onSelect).not.toHaveBeenCalled();
+	});
+
+	it("puts a vertex back when its drag is cancelled", () => {
+		const onVertexMove = vi.fn();
+		const onVertexMoveEnd = vi.fn();
+		renderWith({ isSelected: true, onVertexMove, onVertexMoveEnd });
+		vi.spyOn(screen.getByTestId("test-svg"), "getBoundingClientRect").mockReturnValue({
+			left: 0,
+			top: 0,
+			width: 100,
+			height: 100,
+		} as DOMRect);
+		const handle = screen.getByTestId("annotation-polygon").querySelector("circle")!;
+
+		fireEvent.pointerDown(handle, touch);
+		fireEvent.pointerMove(handle, { ...touch, clientX: 30, clientY: 40 });
+		fireEvent.pointerCancel(handle, touch);
+
+		expect(onVertexMove).toHaveBeenNthCalledWith(1, "a1", 0, { x: 0.3, y: 0.4 });
+		expect(onVertexMove).toHaveBeenLastCalledWith("a1", 0, { x: 0.1, y: 0.1 });
+		expect(onVertexMoveEnd).toHaveBeenCalledWith("a1");
+	});
+
+	it("ends a cancelled move where it is, never on the trash", () => {
+		vi.useFakeTimers();
+		try {
+			const onMoveEnd = vi.fn();
+			renderWith({ onMoveEnd });
+			const polygon = screen.getByTestId("annotation-polygon").querySelector("polygon")!;
+
+			fireEvent.pointerDown(polygon, touch);
+			vi.advanceTimersByTime(250);
+			fireEvent.pointerCancel(polygon, touch);
+
+			expect(onMoveEnd).toHaveBeenCalledWith("a1", Number.NaN, Number.NaN);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("keeps outlines and vertex handles the same size on screen when zoomed", () => {
+		renderWith({ isSelected: true, zoom: 2 });
+		const g = screen.getByTestId("annotation-polygon");
+
+		expect(g.querySelector("[data-annotation-id]")!.getAttribute("stroke-width")).toBe("0.002");
+		expect(g.querySelector("circle")!.getAttribute("r")).toBe("0.0025");
 	});
 });
