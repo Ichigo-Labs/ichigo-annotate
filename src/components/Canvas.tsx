@@ -28,6 +28,9 @@ interface CanvasProps {
 	onLassoComplete: () => void;
 	onLassoCancel: () => void;
 	onBucketFill: (point: Point) => void;
+	// Object mode: a tap outlines the mark under it, a loop outlines the marks inside.
+	onObjectTap: (point: Point) => void;
+	onObjectLoop: (points: Point[]) => void;
 	onRectPoint: (point: Point) => void;
 	onPolygonPoint: (point: Point) => void;
 	onAnnotationMoveStart: (annotationId: string) => void;
@@ -44,6 +47,8 @@ interface CanvasProps {
 const MIN_POINT_DISTANCE = 0.008;
 const CLOSE_THRESHOLD = 0.03;
 const NEAR_COMPLETE_GAP_RATIO = 0.25;
+// An object-mode press that moves less than this is a tap, not a loop.
+const OBJECT_TAP_SLOP = 0.01;
 
 export function Canvas({
 	imageUrl,
@@ -64,6 +69,8 @@ export function Canvas({
 	onLassoComplete,
 	onLassoCancel,
 	onBucketFill,
+	onObjectTap,
+	onObjectLoop,
 	onRectPoint,
 	onPolygonPoint,
 	onAnnotationMoveStart,
@@ -85,12 +92,15 @@ export function Canvas({
 	const pendingTapRef = useRef<{ pointerId: number; point: Point } | null>(null);
 	// The pointer drawing the lasso; another pointer's cancel doesn't end it.
 	const lassoPointerRef = useRef<number | null>(null);
+	// Where an object-mode press began: on lift it's a tap or a loop.
+	const objectPressRef = useRef<{ pointerId: number; point: Point } | null>(null);
 	const isDrawing = activeLassoPoints !== null;
 	const isDeleteMode = canvasMode === "delete";
 	const isPaintMode = canvasMode === "paint";
 	const isTagMode = canvasMode === "tag";
 	const isRectMode = canvasMode === "rect";
 	const isPolygonMode = canvasMode === "polygon";
+	const isObjectMode = canvasMode === "object";
 	const isTapMode = isDeleteMode || isPaintMode || isTagMode;
 	// Sizes and distance rules below are divided by the zoom so they keep
 	// their on-screen size when zoomed in.
@@ -184,6 +194,17 @@ export function Canvas({
 		const point = toSvgCoords(e);
 		if (!point) return;
 
+		// Object mode draws a loop from the press and decides on lift whether
+		// it was a tap.
+		if (isObjectMode) {
+			(e.target as Element).setPointerCapture(e.pointerId);
+			onSelectAnnotation(null);
+			objectPressRef.current = { pointerId: e.pointerId, point };
+			lassoPointerRef.current = e.pointerId;
+			onLassoStart(point);
+			return;
+		}
+
 		if (e.pointerType === "touch") {
 			(e.target as Element).setPointerCapture(e.pointerId);
 			pendingTapRef.current = { pointerId: e.pointerId, point };
@@ -212,6 +233,19 @@ export function Canvas({
 	};
 
 	const handleSvgPointerUp = (e: React.PointerEvent) => {
+		const press = objectPressRef.current;
+		if (press?.pointerId === e.pointerId) {
+			objectPressRef.current = null;
+			const points = activeLassoPoints ?? [press.point];
+			onLassoCancel();
+			const moved = points.some(
+				(p) => distanceBetween(p, press.point) > OBJECT_TAP_SLOP / zoom,
+			);
+			if (moved && points.length >= 3) onObjectLoop(points);
+			else onObjectTap(press.point);
+			return;
+		}
+
 		const tap = pendingTapRef.current;
 		if (tap?.pointerId === e.pointerId) {
 			pendingTapRef.current = null;
@@ -232,6 +266,7 @@ export function Canvas({
 	// A pinch or the browser took the pointer over: drop what it started.
 	const handleSvgPointerCancel = (e: React.PointerEvent) => {
 		if (pendingTapRef.current?.pointerId === e.pointerId) pendingTapRef.current = null;
+		if (objectPressRef.current?.pointerId === e.pointerId) objectPressRef.current = null;
 		if (activeLassoPoints && lassoPointerRef.current === e.pointerId) onLassoCancel();
 	};
 

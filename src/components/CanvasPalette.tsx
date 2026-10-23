@@ -304,6 +304,19 @@ export function CanvasPalette({
 					</svg>
 				</button>
 				<button
+					className={`${styles.iconBtn} ${canvasMode === "object" ? styles.iconBtnActive : ""}`}
+					onClick={() => onModeChange("object")}
+					aria-label="Object mode"
+					title="Tap a mark (heart, sweat drop, star…) to outline it, or draw a loop around marks to outline them together"
+					data-testid="mode-object"
+				>
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+						{/* Dashed outline around a heart */}
+						<rect x="1.5" y="1.5" width="13" height="13" rx="2.5" strokeDasharray="2.2 1.8"/>
+						<path d="M8 11.2 5.4 8.6a1.6 1.6 0 0 1 2.6-1.9 1.6 1.6 0 0 1 2.6 1.9z" fill="currentColor" stroke="none"/>
+					</svg>
+				</button>
+				<button
 					className={`${styles.iconBtn} ${canvasMode === "paint" ? styles.iconBtnActive : ""}`}
 					onClick={() => onModeChange("paint")}
 					aria-label="Paint class mode"

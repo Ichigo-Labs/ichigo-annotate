@@ -20,6 +20,8 @@ import {
 import type { CocoData } from "./utils/importUtils";
 import { exportAsZip } from "./services/exportService";
 import { floodFillToPolygon } from "./utils/floodFillUtils";
+import { objectAtPoint, objectsInLoop } from "./utils/objectSelectUtils";
+import type { ObjectSelection } from "./utils/objectSelectUtils";
 import { polygonizeVertices } from "./utils/areaUtils";
 import type { Point } from "./types/appState";
 import { Sidebar } from "./components/Sidebar";
@@ -34,6 +36,8 @@ import styles from "./app.module.css";
 
 // How long a notice (e.g. skipped images) stays up.
 const NOTICE_MS = 15000;
+// How long a tool hint (e.g. nothing found under a tap) stays up.
+const HINT_MS = 4000;
 // How many skipped file names a notice lists.
 const NOTICE_MAX_NAMES = 5;
 
@@ -77,10 +81,10 @@ export function App() {
 	// -- Handlers --
 
 	// Show a message in a toast for a while.
-	const showNotice = (message: string) => {
+	const showNotice = (message: string, ms = NOTICE_MS) => {
 		const id = crypto.randomUUID();
 		dispatch({ type: "add_toast", toast: { id, message } });
-		setTimeout(() => dispatch({ type: "remove_toast", id }), NOTICE_MS);
+		setTimeout(() => dispatch({ type: "remove_toast", id }), ms);
 	};
 
 	const handleImport = async (rawFiles: File[], replace: boolean) => {
@@ -328,6 +332,27 @@ export function App() {
 		}
 	};
 
+	// Object mode: outline the mark under a tap, or the marks inside a loop.
+	const handleObjectSelection = async (
+		select: (imageUrl: string) => Promise<ObjectSelection>,
+	) => {
+		if (!imageUrl) return;
+		const result = await select(imageUrl);
+		if ("error" in result) {
+			showNotice(
+				result.error === "too-big"
+					? "That's part of the bubble or the art. Tap the mark itself, or draw a loop around it."
+					: "No mark found there. Tap the mark itself, or draw a loop around it.",
+				HINT_MS,
+			);
+			return;
+		}
+		const finalVertices = appState.general.polygonize
+			? polygonizeVertices(result.vertices, appState.general.polygonizeSides)
+			: result.vertices;
+		dispatch({ type: "add_annotation", vertices: finalVertices });
+	};
+
 	const handleBucketFill = async (point: Point) => {
 		if (!imageUrl) return;
 		const vertices = await floodFillToPolygon(imageUrl, point);
@@ -412,6 +437,8 @@ export function App() {
 					onLassoComplete={() => dispatch({ type: "complete_lasso" })}
 					onLassoCancel={() => dispatch({ type: "cancel_lasso" })}
 					onBucketFill={handleBucketFill}
+					onObjectTap={(p) => handleObjectSelection((url) => objectAtPoint(url, p))}
+					onObjectLoop={(points) => handleObjectSelection((url) => objectsInLoop(url, points))}
 					onRectPoint={(p) => dispatch({ type: "add_rect_point", point: p })}
 					onPolygonPoint={(p) => dispatch({ type: "add_polygon_point", point: p })}
 					onAnnotationMoveStart={(annotationId) => {

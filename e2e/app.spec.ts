@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -259,6 +259,80 @@ test.describe("Import with unreadable images", () => {
 		).toBeVisible();
 		await expect(page.getByText("Files (0/1)")).toBeVisible();
 		await expect(page.getByText(/^Importing/)).not.toBeVisible();
+	});
+});
+
+test.describe("Object mode", () => {
+	// marks.png (200x120): a filled disk at (50, 60) r 15, a 2 px ring at (150, 60) r 18.
+	async function setup(page: Page) {
+		await page.goto("/");
+		await page.getByTestId("import-btn").click();
+		await page
+			.getByTestId("file-input")
+			.setInputFiles(path.join(fixtures, "object-marks"));
+		await page.getByTestId("import-done").click();
+		await expect(page.locator("img[alt='Annotation target']")).toBeVisible();
+		await page.getByTestId("mode-object").click();
+		const box = (await page.getByTestId("canvas-svg").boundingBox())!;
+		// Image pixel -> screen position.
+		return (x: number, y: number) => [box.x + (x / 200) * box.width, box.y + (y / 120) * box.height] as const;
+	}
+
+	// Pixel bounding box of the nth outline.
+	async function outline(page: Page, n: number) {
+		const points = await page.locator("[data-testid='canvas-svg'] polygon").nth(n).getAttribute("points");
+		const pts = points!.trim().split(/\s+/).map((p) => p.split(",").map(Number));
+		const xs = pts.map(([x]) => x! * 200);
+		const ys = pts.map(([, y]) => y! * 120);
+		return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+	}
+
+	test("tapping marks outlines them", async ({ page }) => {
+		const at = await setup(page);
+
+		await page.mouse.click(...at(50, 60));
+		await page.mouse.click(...at(150, 60));
+
+		await expect(page.locator("[data-testid='canvas-svg'] polygon")).toHaveCount(2);
+		const disk = await outline(page, 0);
+		expect(disk.x0).toBeGreaterThan(30);
+		expect(disk.x1).toBeLessThan(70);
+		expect(disk.y0).toBeGreaterThan(40);
+		expect(disk.y1).toBeLessThan(80);
+		const ring = await outline(page, 1);
+		expect(ring.x0).toBeLessThan(134);
+		expect(ring.x1).toBeGreaterThan(166);
+	});
+
+	test("a loop outlines every mark inside it", async ({ page }) => {
+		const at = await setup(page);
+
+		// Stays below the floating palette at the top left.
+		const loop = [[25, 36], [180, 36], [180, 95], [25, 95], [25, 36]] as const;
+		await page.mouse.move(...at(...loop[0]));
+		await page.mouse.down();
+		for (let k = 1; k < loop.length; k++) {
+			const [ax, ay] = loop[k - 1]!;
+			const [bx, by] = loop[k]!;
+			for (let t = 1; t <= 10; t++) {
+				await page.mouse.move(...at(ax + ((bx - ax) * t) / 10, ay + ((by - ay) * t) / 10));
+			}
+		}
+		await page.mouse.up();
+
+		await expect(page.locator("[data-testid='canvas-svg'] polygon")).toHaveCount(1);
+		const both = await outline(page, 0);
+		expect(both.x0).toBeLessThan(36);
+		expect(both.x1).toBeGreaterThan(166);
+	});
+
+	test("a tap on empty paper explains how to use the tool", async ({ page }) => {
+		const at = await setup(page);
+
+		await page.mouse.click(...at(100, 110));
+
+		await expect(page.getByText(/No mark found there/)).toBeVisible();
+		await expect(page.locator("[data-testid='canvas-svg'] polygon")).toHaveCount(0);
 	});
 });
 

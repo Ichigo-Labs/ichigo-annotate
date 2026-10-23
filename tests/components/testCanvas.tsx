@@ -39,6 +39,8 @@ const defaultProps = {
 	onLassoComplete: noop,
 	onLassoCancel: noop,
 	onBucketFill: noop,
+	onObjectTap: noop,
+	onObjectLoop: noop,
 	onRectPoint: noop,
 	onPolygonPoint: noop,
 	canvasMode: "lasso" as const,
@@ -288,6 +290,89 @@ describe("Canvas polygon mode", () => {
 
 		fireEvent.click(screen.getByTestId("canvas"));
 		expect(onNavigate).not.toHaveBeenCalled();
+	});
+});
+
+describe("Canvas object mode", () => {
+	// Gives the overlay a 200×100 size.
+	const mockImageBox = () => {
+		const svg = screen.getByTestId("canvas-svg");
+		vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({
+			left: 0,
+			top: 0,
+			width: 200,
+			height: 100,
+		} as DOMRect);
+		return svg;
+	};
+
+	it("outlines the mark under a tap", () => {
+		const onObjectTap = vi.fn();
+		const onObjectLoop = vi.fn();
+		render(
+			<Canvas {...defaultProps} canvasMode="object" onObjectTap={onObjectTap} onObjectLoop={onObjectLoop} />,
+		);
+		const svg = mockImageBox();
+
+		fireEvent.pointerDown(svg, { pointerId: 1, clientX: 50, clientY: 25 });
+		fireEvent.pointerUp(svg, { pointerId: 1, clientX: 50, clientY: 25 });
+
+		expect(onObjectTap).toHaveBeenCalledWith({ x: 0.25, y: 0.25 });
+		expect(onObjectLoop).not.toHaveBeenCalled();
+	});
+
+	it("draws a loop from the press", () => {
+		const onLassoStart = vi.fn();
+		render(<Canvas {...defaultProps} canvasMode="object" onLassoStart={onLassoStart} />);
+		const svg = mockImageBox();
+
+		fireEvent.pointerDown(svg, { pointerId: 1, clientX: 50, clientY: 25 });
+
+		expect(onLassoStart).toHaveBeenCalledWith({ x: 0.25, y: 0.25 });
+	});
+
+	it("outlines the marks inside a drawn loop instead of making the loop an annotation", () => {
+		const onObjectTap = vi.fn();
+		const onObjectLoop = vi.fn();
+		const onLassoComplete = vi.fn();
+		const onLassoCancel = vi.fn();
+		const props = {
+			...defaultProps,
+			canvasMode: "object" as const,
+			onObjectTap,
+			onObjectLoop,
+			onLassoComplete,
+			onLassoCancel,
+		};
+		const loop = [
+			{ x: 0.2, y: 0.2 },
+			{ x: 0.4, y: 0.2 },
+			{ x: 0.4, y: 0.4 },
+			{ x: 0.2, y: 0.4 },
+		];
+		const { rerender } = render(<Canvas {...props} />);
+		const svg = mockImageBox();
+
+		fireEvent.pointerDown(svg, { pointerId: 1, clientX: 40, clientY: 20 });
+		rerender(<Canvas {...props} activeLassoPoints={loop} />);
+		fireEvent.pointerUp(svg, { pointerId: 1, clientX: 40, clientY: 40 });
+
+		expect(onObjectLoop).toHaveBeenCalledWith(loop);
+		expect(onObjectTap).not.toHaveBeenCalled();
+		expect(onLassoComplete).not.toHaveBeenCalled();
+		expect(onLassoCancel).toHaveBeenCalled();
+	});
+
+	it("does nothing when a pinch takes the press over", () => {
+		const onObjectTap = vi.fn();
+		render(<Canvas {...defaultProps} canvasMode="object" onObjectTap={onObjectTap} />);
+		const svg = mockImageBox();
+
+		fireEvent.pointerDown(svg, { pointerId: 1, clientX: 50, clientY: 25 });
+		fireEvent.pointerCancel(svg, { pointerId: 1, clientX: 50, clientY: 25 });
+		fireEvent.pointerUp(svg, { pointerId: 1, clientX: 50, clientY: 25 });
+
+		expect(onObjectTap).not.toHaveBeenCalled();
 	});
 });
 

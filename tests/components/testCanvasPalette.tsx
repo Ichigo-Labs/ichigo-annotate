@@ -118,6 +118,18 @@ describe("CanvasPalette", () => {
 		expect(onModeChange).toHaveBeenCalledWith("polygon");
 	});
 
+	it("clicking the object button calls onModeChange with object", () => {
+		const onModeChange = vi.fn();
+		render(<CanvasPalette {...defaultProps} onModeChange={onModeChange} />);
+		fireEvent.click(screen.getByTestId("mode-object"));
+		expect(onModeChange).toHaveBeenCalledWith("object");
+	});
+
+	it("highlights the object button in object mode", () => {
+		render(<CanvasPalette {...defaultProps} canvasMode="object" />);
+		expect(screen.getByTestId("mode-object").className).toMatch(/iconBtnActive/);
+	});
+
 	it("polygon button is highlighted when polygon mode is active", () => {
 		render(<CanvasPalette {...defaultProps} canvasMode="polygon" />);
 		expect(screen.getByTestId("mode-polygon").className).toContain("iconBtnActive");
