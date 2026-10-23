@@ -1,8 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useVisibleRows } from "../hooks/useVisibleRows";
 import type { ImageFile } from "../types/appState";
 import { sortFilesByName } from "../utils/fileSort";
 import { FileListItem } from "./FileListItem";
 import styles from "./FileList.module.css";
+
+// A FileListItem's height: its 36px thumbnail plus 6px padding and a 2px
+// border, top and bottom.
+const ROW_HEIGHT = 52;
+const OVERSCAN_ROWS = 10;
 
 interface FileListProps {
 	files: ImageFile[];
@@ -56,13 +62,23 @@ export function FileList({
 	}, [polygonizeSides]);
 
 	// Filter files by search query, then sort numerically by the first number in the filename.
-	const filtered = searchQuery
-		? files.filter((f) =>
-				f.name.toLowerCase().includes(searchQuery.toLowerCase()),
-			)
-		: files;
+	const sorted = useMemo(() => {
+		const filtered = searchQuery
+			? files.filter((f) =>
+					f.name.toLowerCase().includes(searchQuery.toLowerCase()),
+				)
+			: files;
+		return sortFilesByName(filtered);
+	}, [files, searchQuery]);
 
-	const sorted = sortFilesByName(filtered);
+	// Only the rows in view are rendered; spacers stand in for the rest.
+	const listRef = useRef<HTMLDivElement>(null);
+	const { first, last } = useVisibleRows(
+		listRef,
+		sorted.length,
+		ROW_HEIGHT,
+		OVERSCAN_ROWS,
+	);
 
 	return (
 		<div className={styles.container} data-testid="file-list">
@@ -77,8 +93,9 @@ export function FileList({
 				data-testid="file-search"
 			/>
 
-			<div className={styles.list}>
-				{sorted.map((file) => (
+			<div className={styles.list} ref={listRef}>
+				<div style={{ height: first * ROW_HEIGHT }} />
+				{sorted.slice(first, last).map((file) => (
 					<FileListItem
 						key={file.id}
 						name={file.name}
@@ -89,6 +106,7 @@ export function FileList({
 						onDelete={() => onDeleteFile(file.id)}
 					/>
 				))}
+				<div style={{ height: (sorted.length - last) * ROW_HEIGHT }} />
 			</div>
 
 			{lastDeletedFile && (

@@ -17,7 +17,7 @@ function stateWith(overrides: {
 const makeFile = (id: string, name: string): ImageFile => ({
 	id,
 	name,
-	dataUrl: "",
+	image: new Blob(),
 	thumbnailDataUrl: "",
 	annotations: [],
 });
@@ -1112,7 +1112,7 @@ describe("attributes", () => {
 	const fileWithAnn = (): ImageFile => ({
 		id: "f1",
 		name: "img.png",
-		dataUrl: "",
+		image: new Blob(),
 		thumbnailDataUrl: "",
 		annotations: [
 			{

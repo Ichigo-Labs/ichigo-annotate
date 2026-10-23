@@ -1,52 +1,71 @@
 import type { ImageFile } from "../types/appState";
 
-// Read a File into a base64 data URL.
-export function fileToDataUrl(file: File): Promise<string> {
-	return new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.onload = () => resolve(reader.result as string);
-		reader.onerror = () => reject(reader.error);
-		reader.readAsDataURL(file);
-	});
+// Decode an image Blob for drawing. createImageBitmap decodes off the main
+// thread and frees its pixels on close(); formats it rejects (e.g. SVG) load
+// through an <img> instead.
+async function decodeImage(image: Blob): Promise<ImageBitmap | HTMLImageElement> {
+	try {
+		return await createImageBitmap(image);
+	} catch {
+		return await loadImageElement(image);
+	}
 }
 
-// Create a downscaled thumbnail from a data URL.
-export function generateThumbnail(
-	dataUrl: string,
-	maxDim = 80,
-): Promise<string> {
-	return new Promise((resolve, reject) => {
+function loadImageElement(image: Blob): Promise<HTMLImageElement> {
+	const url = URL.createObjectURL(image);
+	return new Promise<HTMLImageElement>((resolve, reject) => {
 		const img = new Image();
-		img.onload = () => {
-			const scale = Math.min(maxDim / img.width, maxDim / img.height, 1);
-			const w = Math.round(img.width * scale);
-			const h = Math.round(img.height * scale);
-
-			const canvas = document.createElement("canvas");
-			canvas.width = w;
-			canvas.height = h;
-			const ctx = canvas.getContext("2d");
-			if (!ctx) {
-				reject(new Error("Could not get canvas context"));
-				return;
-			}
-			ctx.drawImage(img, 0, 0, w, h);
-			resolve(canvas.toDataURL("image/png"));
-		};
+		img.onload = () => resolve(img);
 		img.onerror = () => reject(new Error("Failed to load image"));
-		img.src = dataUrl;
-	});
+		img.src = url;
+	}).finally(() => URL.revokeObjectURL(url));
 }
 
-// Build an ImageFile from a raw File object.
+// Decode an image Blob once for its natural size and a downscaled PNG
+// thumbnail.
+export async function readImageInfo(
+	image: Blob,
+	maxDim = 80,
+): Promise<{ width: number; height: number; thumbnailDataUrl: string }> {
+	const source = await decodeImage(image);
+	try {
+		const width = "naturalWidth" in source ? source.naturalWidth : source.width;
+		const height = "naturalHeight" in source ? source.naturalHeight : source.height;
+		const scale = Math.min(maxDim / width, maxDim / height, 1);
+
+		const canvas = document.createElement("canvas");
+		canvas.width = Math.max(1, Math.round(width * scale));
+		canvas.height = Math.max(1, Math.round(height * scale));
+		const ctx = canvas.getContext("2d");
+		if (!ctx) throw new Error("Could not get canvas context");
+		ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+		return { width, height, thumbnailDataUrl: canvas.toDataURL("image/png") };
+	} finally {
+		if ("close" in source) source.close();
+	}
+}
+
+// Build an ImageFile from a raw File object. The File itself becomes the
+// image, so its bytes stay on disk rather than in tab memory.
 export async function createImageFile(file: File): Promise<ImageFile> {
-	const dataUrl = await fileToDataUrl(file);
-	const thumbnailDataUrl = await generateThumbnail(dataUrl);
+	const { width, height, thumbnailDataUrl } = await readImageInfo(file);
 	return {
 		id: crypto.randomUUID(),
 		name: file.name,
-		dataUrl,
+		image: file,
+		width,
+		height,
 		thumbnailDataUrl,
 		annotations: [],
 	};
+}
+
+// Decode a base64 data URL (how images were stored before Blobs) into a Blob.
+export function dataUrlToBlob(dataUrl: string): Blob {
+	const comma = dataUrl.indexOf(",");
+	const type = dataUrl.slice("data:".length, comma).split(";")[0]!;
+	const binary = atob(dataUrl.slice(comma + 1));
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+	return new Blob([bytes], { type });
 }

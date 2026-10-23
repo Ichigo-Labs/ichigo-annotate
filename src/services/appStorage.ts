@@ -1,4 +1,4 @@
-import { openDB, type IDBPDatabase } from "idb";
+import { openDB, type IDBPDatabase, type IDBPObjectStore } from "idb";
 import type {
 	AnnotationClass,
 	AppState,
@@ -6,6 +6,7 @@ import type {
 	ImageFile,
 } from "../types/appState";
 import { createInitialState } from "../types/appState";
+import { dataUrlToBlob } from "../utils/imageUtils";
 
 // --- Types ---
 
@@ -35,7 +36,8 @@ export interface StoredPrefs {
 const PREFS_KEY = "ichigo-annotate-prefs";
 const DB_NAME = "ichigo-annotate";
 const FILES_STORE = "files";
-const DB_VERSION = 1;
+// Version 2 stores each image as a Blob instead of a base64 `dataUrl`.
+const DB_VERSION = 2;
 
 // --- IndexedDB setup ---
 
@@ -44,14 +46,34 @@ let dbPromise: Promise<IDBPDatabase> | null = null;
 function getDb(): Promise<IDBPDatabase> {
 	if (!dbPromise) {
 		dbPromise = openDB(DB_NAME, DB_VERSION, {
-			upgrade(db) {
+			async upgrade(db, oldVersion, _newVersion, tx) {
 				if (!db.objectStoreNames.contains(FILES_STORE)) {
 					db.createObjectStore(FILES_STORE, { keyPath: "id" });
+				}
+				if (oldVersion === 1) {
+					await migrateDataUrlsToBlobs(tx.objectStore(FILES_STORE));
 				}
 			},
 		});
 	}
 	return dbPromise;
+}
+
+// Convert version-1 records, which held the image as a base64 `dataUrl`, one
+// record at a time so a large store never has to fit in memory at once.
+async function migrateDataUrlsToBlobs(
+	store: IDBPObjectStore<unknown, string[], typeof FILES_STORE, "versionchange">,
+): Promise<void> {
+	let cursor = await store.openCursor();
+	while (cursor) {
+		const { dataUrl, ...rest } = cursor.value as Omit<ImageFile, "image"> & {
+			dataUrl?: string;
+		};
+		if (typeof dataUrl === "string") {
+			await cursor.update({ ...rest, image: dataUrlToBlob(dataUrl) });
+		}
+		cursor = await cursor.continue();
+	}
 }
 
 // --- UI preferences (localStorage, sync) ---
@@ -116,7 +138,7 @@ export async function saveFiles(files: ImageFile[]): Promise<void> {
 }
 
 // Incremental save: only writes changed files and removes deleted ones.
-// Much cheaper than re-serializing every image's dataUrl on each change,
+// Much cheaper than rewriting every file on each change,
 // enabling save-on-every-edit without locking up the UI.
 export async function saveFilesDiff(
 	changedFiles: ImageFile[],

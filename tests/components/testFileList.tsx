@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { FileList } from "../../src/components/FileList";
 import type { ImageFile } from "../../src/types/appState";
@@ -7,14 +7,14 @@ const files: ImageFile[] = [
 	{
 		id: "1",
 		name: "cat.jpg",
-		dataUrl: "",
+		image: new Blob(),
 		thumbnailDataUrl: "data:image/png;base64,a",
 		annotations: [],
 	},
 	{
 		id: "2",
 		name: "dog.png",
-		dataUrl: "",
+		image: new Blob(),
 		thumbnailDataUrl: "data:image/png;base64,b",
 		annotations: [],
 	},
@@ -54,6 +54,45 @@ describe("FileList", () => {
 	it("renders correct number of file items", () => {
 		render(<FileList {...defaultProps} />);
 		expect(screen.getAllByTestId("file-list-item")).toHaveLength(2);
+	});
+
+	it("renders only the rows in view of a long list", () => {
+		// Arrange
+		const many = Array.from({ length: 1000 }, (_, i) => ({
+			...files[0]!,
+			id: `f${i}`,
+			name: `img-${i}.png`,
+		}));
+
+		// Act
+		render(<FileList {...defaultProps} files={many} totalFileCount={1000} />);
+
+		// Assert
+		const rendered = screen.getAllByTestId("file-list-item");
+		expect(rendered.length).toBeGreaterThan(0);
+		expect(rendered.length).toBeLessThan(100);
+		expect(screen.getByText("img-0.png")).toBeInTheDocument();
+	});
+
+	it("renders the rows scrolled to", () => {
+		// Arrange
+		const many = Array.from({ length: 1000 }, (_, i) => ({
+			...files[0]!,
+			id: `f${i}`,
+			name: `img-${i}.png`,
+		}));
+		render(<FileList {...defaultProps} files={many} totalFileCount={1000} />);
+		const list = screen.getAllByTestId("file-list-item")[0]!.parentElement!;
+
+		// Act
+		act(() => {
+			Object.defineProperty(list, "scrollTop", { value: 500 * 52 });
+			list.dispatchEvent(new Event("scroll"));
+		});
+
+		// Assert
+		expect(screen.getByText("img-500.png")).toBeInTheDocument();
+		expect(screen.queryByText("img-0.png")).not.toBeInTheDocument();
 	});
 
 	it("filters items by search query", () => {

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useAppReducer } from "./hooks/useAppReducer";
+import { useObjectUrl } from "./hooks/useObjectUrl";
 import { createImageFile } from "./utils/imageUtils";
 import {
 	cocoAttributeNames,
@@ -52,6 +53,9 @@ export function App() {
 	const selectedAnnotation = selectedFile?.annotations.find(
 		(a) => a.id === appState.ui.selectedAnnotationId,
 	);
+
+	// Only the selected image is given a URL to display it.
+	const imageUrl = useObjectUrl(selectedFile?.image ?? null);
 
 	// Attribute pills show the selected annotation's attributes when one is
 	// selected, otherwise the defaults applied to newly drawn annotations.
@@ -292,8 +296,8 @@ export function App() {
 	};
 
 	const handleBucketFill = async (point: Point) => {
-		if (!selectedFile) return;
-		const vertices = await floodFillToPolygon(selectedFile.dataUrl, point);
+		if (!imageUrl) return;
+		const vertices = await floodFillToPolygon(imageUrl, point);
 		if (!vertices) return;
 		const finalVertices = appState.general.polygonize
 			? polygonizeVertices(vertices, appState.general.polygonizeSides)
@@ -353,7 +357,7 @@ export function App() {
 			{/* Canvas area with palette overlay */}
 			<div className={styles.canvasArea}>
 				<Canvas
-					imageDataUrl={selectedFile?.dataUrl ?? null}
+					imageUrl={imageUrl}
 					annotations={selectedFile?.annotations ?? []}
 					classes={appState.general.classes}
 					attributes={appState.general.attributes}

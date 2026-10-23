@@ -12,12 +12,18 @@ import {
 } from "../utils/exportUtils";
 import JSZip from "jszip";
 
-// Decode an image's natural pixel dimensions from its data URL. Returns null
-// when decoding fails or stalls (jsdom never fires image load events, so the
-// timeout keeps tests and broken data URLs from hanging the export).
-function getImageDims(dataUrl: string): Promise<{ w: number; h: number } | null> {
+// An image's natural pixel dimensions: recorded at import, or decoded for
+// files saved before sizes were recorded. Returns null when decoding fails or
+// stalls (jsdom never fires image load events, so the timeout keeps tests and
+// broken images from hanging the export).
+function getImageDims(file: ImageFile): Promise<{ w: number; h: number } | null> {
+	if (file.width && file.height) {
+		return Promise.resolve({ w: file.width, h: file.height });
+	}
+	let url: string | null = null;
 	const decode = new Promise<{ w: number; h: number } | null>((resolve) => {
 		try {
+			url = URL.createObjectURL(file.image);
 			const img = new Image();
 			img.onload = () =>
 				resolve(
@@ -26,7 +32,7 @@ function getImageDims(dataUrl: string): Promise<{ w: number; h: number } | null>
 						: null,
 				);
 			img.onerror = () => resolve(null);
-			img.src = dataUrl;
+			img.src = url;
 		} catch {
 			resolve(null);
 		}
@@ -34,7 +40,9 @@ function getImageDims(dataUrl: string): Promise<{ w: number; h: number } | null>
 	const timeout = new Promise<null>((resolve) =>
 		setTimeout(() => resolve(null), 1500),
 	);
-	return Promise.race([decode, timeout]);
+	return Promise.race([decode, timeout]).finally(() => {
+		if (url) URL.revokeObjectURL(url);
+	});
 }
 
 export async function exportAsZip(
@@ -59,7 +67,7 @@ export async function exportAsZip(
 		// (with image width/height) whenever the images can be decoded.
 		const dims = new Map<string, { w: number; h: number }>();
 		const decoded = await Promise.all(
-			files.map(async (f) => [f.id, await getImageDims(f.dataUrl)] as const),
+			files.map(async (f) => [f.id, await getImageDims(f)] as const),
 		);
 		for (const [id, d] of decoded) {
 			if (d) dims.set(id, d);

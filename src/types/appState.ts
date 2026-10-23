@@ -24,7 +24,14 @@ export interface Annotation {
 export interface ImageFile {
 	id: string;
 	name: string;
-	dataUrl: string;
+	// The image bytes: the imported File, or IndexedDB's copy after a reload.
+	// Unlike a data URL string, a Blob stays out of tab memory until shown, so
+	// datasets of thousands of images fit.
+	image: Blob;
+	// Natural pixel size, recorded at import. Files saved before sizes were
+	// recorded lack it.
+	width?: number;
+	height?: number;
 	thumbnailDataUrl: string;
 	annotations: Annotation[];
 }

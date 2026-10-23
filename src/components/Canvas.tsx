@@ -10,7 +10,7 @@ import { AnnotationPolygon } from "./AnnotationPolygon";
 import styles from "./Canvas.module.css";
 
 interface CanvasProps {
-	imageDataUrl: string | null;
+	imageUrl: string | null;
 	annotations: Annotation[];
 	classes: AnnotationClass[];
 	attributes: string[];
@@ -46,7 +46,7 @@ const CLOSE_THRESHOLD = 0.03;
 const NEAR_COMPLETE_GAP_RATIO = 0.25;
 
 export function Canvas({
-	imageDataUrl,
+	imageUrl,
 	annotations,
 	classes,
 	attributes,
@@ -258,7 +258,7 @@ export function Canvas({
 		?.map((p) => `${p.x},${p.y}`)
 		.join(" ");
 
-	if (!imageDataUrl) {
+	if (!imageUrl) {
 		return (
 			<div className={styles.container} data-testid="canvas" onClick={handleContainerClick}>
 				<div className={styles.placeholder}>
@@ -282,7 +282,7 @@ export function Canvas({
 				<img
 					className={stretchImage ? styles.imageStretch : styles.image}
 					style={layerStyle}
-					src={imageDataUrl}
+					src={imageUrl}
 					alt="Annotation target"
 					draggable={false}
 				/>

@@ -15,10 +15,10 @@ const DARK_BUBBLE_THRESHOLD = 128;
 // --- Public API ---
 
 export async function floodFillToPolygon(
-	imageDataUrl: string,
+	imageUrl: string,
 	clickPoint: Point,
 ): Promise<Point[] | null> {
-	const img = await loadImage(imageDataUrl);
+	const img = await loadImage(imageUrl);
 	const width = img.naturalWidth;
 	const height = img.naturalHeight;
 
@@ -340,12 +340,12 @@ function rayBasedPolygon(
 
 // --- Image loading ---
 
-function loadImage(dataUrl: string): Promise<HTMLImageElement> {
+function loadImage(url: string): Promise<HTMLImageElement> {
 	return new Promise((resolve, reject) => {
 		const img = new Image();
 		img.onload = () => resolve(img);
 		img.onerror = reject;
-		img.src = dataUrl;
+		img.src = url;
 	});
 }
 

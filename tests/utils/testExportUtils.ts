@@ -51,14 +51,14 @@ describe("toCocoFormat", () => {
 			{
 				id: "f1",
 				name: "img1.png",
-				dataUrl: "",
+				image: new Blob(),
 				thumbnailDataUrl: "",
 				annotations: [annotation],
 			},
 			{
 				id: "f2",
 				name: "img2.png",
-				dataUrl: "",
+				image: new Blob(),
 				thumbnailDataUrl: "",
 				annotations: [],
 			},
@@ -150,7 +150,7 @@ describe("attribute export", () => {
 		{
 			id: "f1",
 			name: "img1.png",
-			dataUrl: "",
+			image: new Blob(),
 			thumbnailDataUrl: "",
 			annotations: [attrAnnotation, annotation],
 		},

@@ -23,7 +23,7 @@ const annotations: Annotation[] = [
 const noop = vi.fn();
 
 const defaultProps = {
-	imageDataUrl: "data:image/png;base64,abc",
+	imageUrl: "data:image/png;base64,abc",
 	annotations: [] as Annotation[],
 	classes,
 	attributes: [] as string[],
@@ -56,11 +56,11 @@ const defaultProps = {
 
 describe("Canvas", () => {
 	it("renders placeholder when no image", () => {
-		render(<Canvas {...defaultProps} imageDataUrl={null} />);
+		render(<Canvas {...defaultProps} imageUrl={null} />);
 		expect(screen.getByText("Import images to get started")).toBeInTheDocument();
 	});
 
-	it("renders an image when imageDataUrl is provided", () => {
+	it("renders an image when imageUrl is provided", () => {
 		render(<Canvas {...defaultProps} />);
 		expect(screen.getByAltText("Annotation target")).toBeInTheDocument();
 	});

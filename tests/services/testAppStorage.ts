@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
 	clearAll,
 	loadFiles,
@@ -16,7 +16,7 @@ import type { ImageFile } from "../../src/types/appState";
 const makeFile = (id: string, name: string): ImageFile => ({
 	id,
 	name,
-	dataUrl: "data:image/png;base64,abc",
+	image: new Blob(["abc"], { type: "image/png" }),
 	thumbnailDataUrl: "data:image/png;base64,thumb",
 	annotations: [],
 });
@@ -26,6 +26,53 @@ afterEach(async () => {
 	await _resetDb();
 	indexedDB.deleteDatabase("ichigo-annotate");
 });
+
+// fake-indexeddb copies values with Node's structuredClone, which turns
+// jsdom's Blobs into empty objects. Blobs are immutable, so passing the same
+// instance through is a faithful copy.
+const nodeStructuredClone = globalThis.structuredClone;
+function cloneKeepingBlobs(value: unknown): unknown {
+	if (value instanceof Blob) return value;
+	if (Array.isArray(value)) return value.map(cloneKeepingBlobs);
+	if (
+		value !== null &&
+		typeof value === "object" &&
+		Object.getPrototypeOf(value) === Object.prototype
+	) {
+		return Object.fromEntries(
+			Object.entries(value).map(([k, v]) => [k, cloneKeepingBlobs(v)]),
+		);
+	}
+	return nodeStructuredClone(value);
+}
+beforeAll(() => {
+	globalThis.structuredClone = cloneKeepingBlobs as typeof structuredClone;
+});
+afterAll(() => {
+	globalThis.structuredClone = nodeStructuredClone;
+});
+
+// Write records into a version-1 database, as the app stored them before
+// images became Blobs.
+function seedVersion1(records: object[]): Promise<void> {
+	return new Promise((resolve, reject) => {
+		const req = indexedDB.open("ichigo-annotate", 1);
+		req.onupgradeneeded = () => {
+			req.result.createObjectStore("files", { keyPath: "id" });
+		};
+		req.onerror = () => reject(req.error);
+		req.onsuccess = () => {
+			const db = req.result;
+			const tx = db.transaction("files", "readwrite");
+			for (const record of records) tx.objectStore("files").put(record);
+			tx.oncomplete = () => {
+				db.close();
+				resolve();
+			};
+			tx.onerror = () => reject(tx.error);
+		};
+	});
+}
 
 // -- Preferences (localStorage) --
 
@@ -66,6 +113,13 @@ describe("saveFiles / loadFiles", () => {
 	it("returns empty array when nothing stored", async () => {
 		const loaded = await loadFiles();
 		expect(loaded).toEqual([]);
+	});
+
+	it("keeps each image Blob", async () => {
+		await saveFiles([makeFile("a", "a.png")]);
+		const [loaded] = await loadFiles();
+		expect(loaded!.image).toBeInstanceOf(Blob);
+		expect(await loaded!.image.text()).toBe("abc");
 	});
 
 	it("replaces all files on save", async () => {
@@ -113,6 +167,69 @@ describe("saveFilesDiff", () => {
 		await saveFilesDiff([], []);
 		const loaded = await loadFiles();
 		expect(loaded).toHaveLength(1);
+	});
+});
+
+describe("version 1 migration", () => {
+	it("turns stored data URLs into image Blobs", async () => {
+		// Arrange
+		await seedVersion1([
+			{
+				id: "a",
+				name: "a.png",
+				dataUrl: "data:image/png;base64,AQID",
+				thumbnailDataUrl: "data:image/png;base64,thumb",
+				annotations: [],
+			},
+		]);
+
+		// Act
+		const [file] = await loadFiles();
+
+		// Assert
+		expect(file).not.toHaveProperty("dataUrl");
+		expect(file!.image.type).toBe("image/png");
+		expect([...new Uint8Array(await file!.image.arrayBuffer())]).toEqual([1, 2, 3]);
+	});
+
+	it("keeps the rest of each record", async () => {
+		// Arrange
+		const annotations = [
+			{
+				id: "x",
+				classId: "c",
+				vertices: [
+					{ x: 0, y: 0 },
+					{ x: 1, y: 0 },
+					{ x: 1, y: 1 },
+				],
+			},
+		];
+		await seedVersion1([
+			{
+				id: "a",
+				name: "a.png",
+				dataUrl: "data:image/png;base64,AQID",
+				thumbnailDataUrl: "t",
+				annotations,
+			},
+			{
+				id: "b",
+				name: "b.jpg",
+				dataUrl: "data:image/jpeg;base64,BAU=",
+				thumbnailDataUrl: "u",
+				annotations: [],
+			},
+		]);
+
+		// Act
+		const files = await loadFiles();
+
+		// Assert
+		expect(files.map(({ image, ...rest }) => ({ ...rest, type: image.type }))).toEqual([
+			{ id: "a", name: "a.png", thumbnailDataUrl: "t", annotations, type: "image/png" },
+			{ id: "b", name: "b.jpg", thumbnailDataUrl: "u", annotations: [], type: "image/jpeg" },
+		]);
 	});
 });
 
