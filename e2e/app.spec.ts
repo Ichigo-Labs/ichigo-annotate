@@ -294,13 +294,14 @@ test.describe("Canvas layout", () => {
 		const box = (await svg.boundingBox())!;
 
 		// Draw a lasso triangle: start near top-left, drag to right,
-		// then down, then back near start.
-		const x1 = box.x + box.width * 0.2;
-		const y1 = box.y + box.height * 0.2;
-		const x2 = box.x + box.width * 0.8;
-		const y2 = box.y + box.height * 0.2;
+		// then down, then back near start. It stays below the palette,
+		// which floats over the top-left of the canvas.
+		const x1 = box.x + box.width * 0.3;
+		const y1 = box.y + box.height * 0.3;
+		const x2 = box.x + box.width * 0.7;
+		const y2 = box.y + box.height * 0.3;
 		const x3 = box.x + box.width * 0.5;
-		const y3 = box.y + box.height * 0.8;
+		const y3 = box.y + box.height * 0.7;
 
 		// Draw the lasso (pointer down, move through points, release near start).
 		await page.mouse.move(x1, y1);

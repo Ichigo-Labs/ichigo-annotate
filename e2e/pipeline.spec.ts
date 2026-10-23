@@ -118,7 +118,11 @@ test.describe("Pipeline: Import → Annotate → Export", () => {
 			await drawTriangleLasso(page);
 
 			const download = await exportFormat(page, format);
-			expect(download.suggestedFilename()).toBe(`annotations-${format}.zip`);
+			// Named for the format and the export's date and hour, e.g.
+			// annotations-yolo-2026-10-22-14.zip.
+			expect(download.suggestedFilename()).toMatch(
+				new RegExp(`^annotations-${format}-\\d{4}-\\d{2}-\\d{2}-\\d{2}\\.zip$`),
+			);
 
 			// Verify the zip is non-empty and has expected content.
 			const zipPath = await download.path();
