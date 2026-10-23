@@ -19,6 +19,8 @@ describe("createInitialState", () => {
 		expect(state.ui.importModalOpen).toBe(false);
 		expect(state.ui.exportModalOpen).toBe(false);
 		expect(state.ui.toasts).toEqual([]);
+		expect(state.ui.storageStatus).toBe("loading");
+		expect(state.ui.storageError).toBeNull();
 
 		// General defaults.
 		expect(state.general.files).toEqual([]);

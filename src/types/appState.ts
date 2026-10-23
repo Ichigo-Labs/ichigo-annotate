@@ -47,6 +47,24 @@ export interface Toast {
 	progress?: { current: number; total: number };
 }
 
+// --- Storage ---
+
+// Whether the app's data is safely stored in the browser.
+export type StorageStatus =
+	// Reading the saved files; the app waits for them.
+	| "loading"
+	// Waiting for another tab, running an older version, to let go of the
+	// saved files so they can be upgraded.
+	| "blocked"
+	// Everything is stored, or a save is on its way.
+	| "saved"
+	// The last save failed; saving is retried until it succeeds.
+	| "save_failed"
+	// The saved files could not be loaded; nothing is being saved.
+	| "load_failed"
+	// Another tab upgraded or reset the saved files; this tab stopped saving.
+	| "outdated";
+
 // --- UI state (view-specific) ---
 
 // Zoom and pan of the canvas image. `x`/`y` translate the zoomed image as a
@@ -81,6 +99,9 @@ export interface UIState {
 	// selected, the palette toggles operate on this set).
 	activeAttributes: string[];
 	toasts: Toast[];
+	storageStatus: StorageStatus;
+	// What went wrong, for the failure statuses.
+	storageError: string | null;
 }
 
 // --- General state (meaningful without a UI) ---
@@ -179,6 +200,7 @@ export type AppAction =
 			progress?: { current: number; total: number };
 	  }
 	| { type: "remove_toast"; id: string }
+	| { type: "set_storage_status"; status: StorageStatus; error?: string | null }
 	| { type: "set_canvas_mode"; mode: CanvasMode }
 	| { type: "set_canvas_view"; view: CanvasView }
 	| { type: "reset_canvas_view" }
@@ -227,6 +249,8 @@ export function createInitialState(): AppState {
 			selectedAnnotationId: null,
 			activeAttributes: [],
 			toasts: [],
+			storageStatus: "loading",
+			storageError: null,
 		},
 		general: {
 			files: [],

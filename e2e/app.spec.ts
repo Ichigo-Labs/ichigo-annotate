@@ -241,6 +241,27 @@ test.describe("Import with annotations", () => {
 	});
 });
 
+test.describe("Import with unreadable images", () => {
+	test("imports the readable images and names the skipped ones", async ({ page }) => {
+		await page.goto("/");
+
+		// Import a folder holding one good and one corrupt image.
+		await page.getByTestId("import-btn").click();
+		await page
+			.getByTestId("file-input")
+			.setInputFiles(path.join(fixtures, "with-broken-image"));
+		await page.getByTestId("import-done").click();
+
+		// The good image is imported and the corrupt one is reported.
+		await expect(page.getByText("test-image-1.png")).toBeVisible();
+		await expect(
+			page.getByText("Skipped 1 unreadable image: broken.png"),
+		).toBeVisible();
+		await expect(page.getByText("Files (0/1)")).toBeVisible();
+		await expect(page.getByText(/^Importing/)).not.toBeVisible();
+	});
+});
+
 test.describe("Canvas layout", () => {
 	test("image fills the full canvas area", async ({ page }) => {
 		await page.goto("/");

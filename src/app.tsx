@@ -29,7 +29,13 @@ import { CanvasPalette } from "./components/CanvasPalette";
 import { ImportModal } from "./components/ImportModal";
 import { ExportModal } from "./components/ExportModal";
 import { SystemToast } from "./components/SystemToast";
+import { StorageNotice } from "./components/StorageNotice";
 import styles from "./app.module.css";
+
+// How long a notice (e.g. skipped images) stays up.
+const NOTICE_MS = 15000;
+// How many skipped file names a notice lists.
+const NOTICE_MAX_NAMES = 5;
 
 export function App() {
 	const [appState, dispatch] = useAppReducer();
@@ -69,6 +75,13 @@ export function App() {
 		appState.ui.activePolygonPoints !== null;
 
 	// -- Handlers --
+
+	// Show a message in a toast for a while.
+	const showNotice = (message: string) => {
+		const id = crypto.randomUUID();
+		dispatch({ type: "add_toast", toast: { id, message } });
+		setTimeout(() => dispatch({ type: "remove_toast", id }), NOTICE_MS);
+	};
 
 	const handleImport = async (rawFiles: File[], replace: boolean) => {
 		dispatch({ type: "close_import_modal" });
@@ -243,18 +256,24 @@ export function App() {
 			},
 		});
 
+		// Images the browser can't decode are skipped, not the whole import.
 		const imported = [];
+		const unreadable: string[] = [];
 		for (let i = 0; i < imageFiles.length; i++) {
 			const imgFile = imageFiles[i]!;
-			const imageFile = await createImageFile(imgFile);
+			const imageFile = await createImageFile(imgFile).catch(() => null);
 
-			const baseName = imgFile.name.replace(/\.[^.]+$/, "");
-			const matchedAnnotations = annotationMap.get(baseName);
-			if (matchedAnnotations) {
-				imageFile.annotations = matchedAnnotations;
+			if (imageFile) {
+				const baseName = imgFile.name.replace(/\.[^.]+$/, "");
+				const matchedAnnotations = annotationMap.get(baseName);
+				if (matchedAnnotations) {
+					imageFile.annotations = matchedAnnotations;
+				}
+				imported.push(imageFile);
+			} else {
+				unreadable.push(imgFile.name);
 			}
 
-			imported.push(imageFile);
 			dispatch({
 				type: "update_toast",
 				id: toastId,
@@ -263,14 +282,28 @@ export function App() {
 			});
 		}
 
-		dispatch({
-			type: "import_files",
-			files: imported,
-			importClasses,
-			importAttributes,
-			replace,
-		});
+		// Nothing readable: keep the current files, even when replacing.
+		if (imported.length > 0) {
+			dispatch({
+				type: "import_files",
+				files: imported,
+				importClasses,
+				importAttributes,
+				replace,
+			});
+		}
 		dispatch({ type: "remove_toast", id: toastId });
+
+		if (unreadable.length > 0) {
+			const names = unreadable.slice(0, NOTICE_MAX_NAMES).join(", ");
+			const more = unreadable.length - NOTICE_MAX_NAMES;
+			const plural = unreadable.length === 1 ? "" : "s";
+			showNotice(
+				`Skipped ${unreadable.length} unreadable image${plural}: ${names}` +
+					(more > 0 ? ` and ${more} more` : ""),
+			);
+			console.warn("Skipped unreadable images:", unreadable);
+		}
 	};
 
 	const handleExport = async () => {
@@ -499,7 +532,12 @@ export function App() {
 			{/* Modals */}
 			<ImportModal
 				open={appState.ui.importModalOpen}
-				onImport={handleImport}
+				onImport={(files, replace) =>
+					handleImport(files, replace).catch((err: unknown) => {
+						const reason = err instanceof Error ? err.message : String(err);
+						showNotice(`Import failed: ${reason}`);
+					})
+				}
 				onCancel={() => dispatch({ type: "close_import_modal" })}
 			/>
 			<ExportModal
@@ -514,6 +552,13 @@ export function App() {
 
 			{/* Toasts */}
 			<SystemToast toasts={appState.ui.toasts} />
+
+			{/* Loading screen, or a warning while changes aren't being saved */}
+			<StorageNotice
+				status={appState.ui.storageStatus}
+				error={appState.ui.storageError}
+				onReload={() => window.location.reload()}
+			/>
 		</div>
 	);
 }

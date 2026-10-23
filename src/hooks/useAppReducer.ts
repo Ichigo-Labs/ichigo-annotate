@@ -1,5 +1,5 @@
-import { useEffect, useReducer, useRef } from "react";
-import type { AppAction, AppState, Point } from "../types/appState";
+import { useEffect, useLayoutEffect, useReducer, useRef } from "react";
+import type { AppAction, AppState, Point, StorageStatus } from "../types/appState";
 import {
 	DEFAULT_CANVAS_VIEW,
 	SIDEBAR_COLLAPSE_THRESHOLD,
@@ -7,7 +7,13 @@ import {
 } from "../types/appState";
 import { polygonizeVertices, translatePolygon } from "../utils/areaUtils";
 import { sortFilesByName } from "../utils/fileSort";
-import { loadFullState, saveFilesDiff, savePrefs } from "../services/appStorage";
+import {
+	loadFullState,
+	requestPersistentStorage,
+	saveFilesDiff,
+	savePrefs,
+	setStorageListener,
+} from "../services/appStorage";
 import type { ImageFile } from "../types/appState";
 import { POLYGON_CLOSE_RADIUS, isClosingTap } from "../utils/polygonUtils";
 import {
@@ -31,7 +37,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 function reduceAction(state: AppState, action: AppAction): AppState {
 	switch (action.type) {
 		case "hydrate":
-			return action.state;
+			// The loaded state is what's stored.
+			return {
+				...action.state,
+				ui: { ...action.state.ui, storageStatus: "saved", storageError: null },
+			};
 
 		// -- Sidebar --
 		case "set_sidebar_width":
@@ -249,6 +259,10 @@ function reduceAction(state: AppState, action: AppAction): AppState {
 				},
 			};
 
+		// -- Storage --
+		case "set_storage_status":
+			return handleSetStorageStatus(state, action.status, action.error ?? null);
+
 		// -- Canvas view --
 		case "set_canvas_view":
 			return { ...state, ui: { ...state.ui, canvasView: action.view } };
@@ -293,6 +307,22 @@ function handleSetSidebarWidth(
 			sidebarWidthPercent: clamped,
 			sidebarCollapsed: clamped < SIDEBAR_COLLAPSE_THRESHOLD,
 		},
+	};
+}
+
+function handleSetStorageStatus(
+	state: AppState,
+	status: StorageStatus,
+	error: string | null,
+): AppState {
+	const current = state.ui.storageStatus;
+	// Once saving has stopped, only reloading (hydrate) changes the status.
+	if (current === "load_failed" || current === "outdated") return state;
+	// Unchanged: keep the same state so nothing re-renders.
+	if (current === status && state.ui.storageError === error) return state;
+	return {
+		...state,
+		ui: { ...state.ui, storageStatus: status, storageError: error },
 	};
 }
 
@@ -1043,42 +1073,104 @@ function handleNavigateFile(
 // editing (e.g. dragging a vertex) still flushes to disk regularly.
 const SAVE_DEBOUNCE_MS = 300;
 const SAVE_MAX_WAIT_MS = 2000;
+// After a failed save, how long until the next attempt.
+const SAVE_RETRY_MS = 5000;
+
+// The files to write and the ids to delete to bring the store from
+// `stored` to `files`.
+function diffFiles(stored: ImageFile[], files: ImageFile[]) {
+	const storedById = new Map(stored.map((f) => [f.id, f]));
+	const ids = new Set(files.map((f) => f.id));
+	return {
+		changed: files.filter((f) => storedById.get(f.id) !== f),
+		deletedIds: stored.filter((f) => !ids.has(f.id)).map((f) => f.id),
+	};
+}
+
+function errorText(err: unknown): string {
+	return err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+}
 
 export function useAppReducer(): [AppState, React.Dispatch<AppAction>] {
 	const [state, dispatch] = useReducer(appReducer, null, createInitialState);
-	const hydrated = useRef(false);
+	// Saving starts once the saved state has loaded, so the empty starting
+	// state never overwrites it, and stops if another tab takes the data.
+	const canSave = useRef(false);
 
-	// Track the latest state and last-persisted files for diffed saves.
+	// The latest committed state (a render that throws is never saved) and
+	// the files as last stored, for diffed saves.
 	const stateRef = useRef(state);
-	stateRef.current = state;
-	const lastSavedFilesRef = useRef<ImageFile[]>([]);
+	useLayoutEffect(() => {
+		stateRef.current = state;
+	});
+	const storedFilesRef = useRef<ImageFile[]>([]);
+
+	// Saves run one at a time, each diffed against what the last successful
+	// one stored, so a failed save's changes go out with the next save.
+	const saveQueue = useRef<Promise<void>>(Promise.resolve());
+	const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// Save the current state — prefs synchronously, files via incremental diff.
-	const flushSave = useRef(() => {
-		const current = stateRef.current;
-		savePrefs(current);
-
-		const prev = lastSavedFilesRef.current;
-		const prevMap = new Map(prev.map((f) => [f.id, f]));
-		const nextFiles = current.general.files;
-		const nextIds = new Set(nextFiles.map((f) => f.id));
-
-		const changed = nextFiles.filter((f) => prevMap.get(f.id) !== f);
-		const deletedIds = prev
-			.filter((f) => !nextIds.has(f.id))
-			.map((f) => f.id);
-
-		lastSavedFilesRef.current = nextFiles;
-		saveFilesDiff(changed, deletedIds);
+	const flushSave = useRef((): Promise<void> => {
+		if (!canSave.current) return saveQueue.current;
+		const prefsSaved = savePrefs(stateRef.current);
+		saveQueue.current = saveQueue.current.then(async () => {
+			if (!canSave.current) return;
+			const files = stateRef.current.general.files;
+			const { changed, deletedIds } = diffFiles(storedFilesRef.current, files);
+			try {
+				await saveFilesDiff(changed, deletedIds);
+				storedFilesRef.current = files;
+				if (!prefsSaved) throw new Error("Settings could not be stored");
+				dispatch({ type: "set_storage_status", status: "saved" });
+				if (changed.length > 0) requestPersistentStorage();
+			} catch (err) {
+				dispatch({
+					type: "set_storage_status",
+					status: "save_failed",
+					error: errorText(err),
+				});
+				if (!retryTimerRef.current) {
+					retryTimerRef.current = setTimeout(() => {
+						retryTimerRef.current = null;
+						void flushSave.current();
+					}, SAVE_RETRY_MS);
+				}
+			}
+		});
+		return saveQueue.current;
 	});
 
-	// Hydrate from IndexedDB + localStorage on mount.
+	// Load the saved state on mount, and follow what other tabs and the
+	// browser do to the stored data.
 	useEffect(() => {
-		loadFullState().then((loaded) => {
-			dispatch({ type: "hydrate", state: loaded });
-			lastSavedFilesRef.current = loaded.general.files;
-			hydrated.current = true;
+		setStorageListener({
+			onBlocked: () => dispatch({ type: "set_storage_status", status: "blocked" }),
+			onVersionChange: async () => {
+				await flushSave.current();
+				canSave.current = false;
+				dispatch({ type: "set_storage_status", status: "outdated" });
+			},
+			// The stored files may be gone: write them all again.
+			onTerminated: () => {
+				storedFilesRef.current = [];
+				void flushSave.current();
+			},
 		});
+		loadFullState().then(
+			(loaded) => {
+				dispatch({ type: "hydrate", state: loaded });
+				storedFilesRef.current = loaded.general.files;
+				canSave.current = true;
+				if (loaded.general.files.length > 0) requestPersistentStorage();
+			},
+			(err: unknown) =>
+				dispatch({
+					type: "set_storage_status",
+					status: "load_failed",
+					error: errorText(err),
+				}),
+		);
 	}, []);
 
 	// Auto-save on state changes. Debounced for typical edits, but capped by
@@ -1087,7 +1179,7 @@ export function useAppReducer(): [AppState, React.Dispatch<AppAction>] {
 	const maxWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
-		if (!hydrated.current) return;
+		if (!canSave.current) return;
 
 		if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 		debounceTimerRef.current = setTimeout(() => {
@@ -1095,7 +1187,7 @@ export function useAppReducer(): [AppState, React.Dispatch<AppAction>] {
 				clearTimeout(maxWaitTimerRef.current);
 				maxWaitTimerRef.current = null;
 			}
-			flushSave.current();
+			void flushSave.current();
 		}, SAVE_DEBOUNCE_MS);
 
 		if (!maxWaitTimerRef.current) {
@@ -1103,26 +1195,37 @@ export function useAppReducer(): [AppState, React.Dispatch<AppAction>] {
 				if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 				debounceTimerRef.current = null;
 				maxWaitTimerRef.current = null;
-				flushSave.current();
+				void flushSave.current();
 			}, SAVE_MAX_WAIT_MS);
 		}
 	}, [state]);
 
 	// Flush pending changes when the tab is closed or hidden so users don't
 	// lose the last few edits on accidental close, refresh, or mobile suspend.
+	// Closing while file changes aren't stored yet asks first.
 	useEffect(() => {
-		const flushNow = () => {
-			if (!hydrated.current) return;
-			flushSave.current();
+		const flushNow = () => void flushSave.current();
+		const onBeforeUnload = (e: BeforeUnloadEvent) => {
+			flushNow();
+			const { changed, deletedIds } = diffFiles(
+				storedFilesRef.current,
+				stateRef.current.general.files,
+			);
+			if (changed.length === 0 && deletedIds.length === 0) return;
+			e.preventDefault();
+			// Older browsers only ask when returnValue is set.
+			e.returnValue = true;
 		};
 		const onVisibility = () => {
 			if (document.visibilityState === "hidden") flushNow();
 		};
-		window.addEventListener("beforeunload", flushNow);
+		window.addEventListener("beforeunload", onBeforeUnload);
 		window.addEventListener("pagehide", flushNow);
 		document.addEventListener("visibilitychange", onVisibility);
 		return () => {
-			window.removeEventListener("beforeunload", flushNow);
+			// Unmounting (e.g. after a render error) still saves what's pending.
+			flushNow();
+			window.removeEventListener("beforeunload", onBeforeUnload);
 			window.removeEventListener("pagehide", flushNow);
 			document.removeEventListener("visibilitychange", onVisibility);
 		};

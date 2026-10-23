@@ -1,0 +1,70 @@
+/* Covers the app while saved files load. It appears after a short delay so
+   a quick load doesn't flash, but takes clicks from the start. */
+.overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1100;
+	animation: appear 0.2s ease 0.4s both;
+}
+
+@keyframes appear {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.card {
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: 10px;
+	padding: 20px 24px;
+	max-width: 90vw;
+	font-size: 15px;
+}
+
+/* Bottom center, clear of the palette's default spot at the top left. */
+.banner {
+	position: fixed;
+	bottom: 16px;
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	max-width: min(560px, calc(100vw - 32px));
+	padding: 10px 14px;
+	background: var(--color-secondary);
+	border: 1px solid var(--color-primary);
+	border-radius: 8px;
+	font-size: 14px;
+	z-index: 1100;
+}
+
+.message {
+	flex: 1;
+}
+
+.detail {
+	margin-top: 4px;
+	font-size: 12px;
+	opacity: 0.8;
+	overflow-wrap: anywhere;
+}
+
+.reloadBtn {
+	padding: 6px 14px;
+	border-radius: 6px;
+	border: 1px solid var(--color-text);
+	background: none;
+	color: var(--color-text);
+	font-size: 13px;
+	cursor: pointer;
+	flex-shrink: 0;
+}

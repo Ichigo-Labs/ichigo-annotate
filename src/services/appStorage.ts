@@ -41,6 +41,26 @@ const DB_VERSION = 2;
 
 // --- IndexedDB setup ---
 
+// Told about other tabs and the browser acting on the database.
+export interface StorageListener {
+	// Another tab, running an older version, keeps the database open, so
+	// this tab's upgrade waits until that tab closes.
+	onBlocked?: () => void;
+	// Another tab needs this connection closed (to upgrade or delete the
+	// database). The returned promise should finish the last save; the
+	// connection closes after it, and this tab can't save from then on.
+	onVersionChange?: () => Promise<void>;
+	// The browser closed the connection (e.g. site data was cleared). The
+	// next save opens a new one, which may hold none of the files.
+	onTerminated?: () => void;
+}
+
+let listener: StorageListener = {};
+
+export function setStorageListener(next: StorageListener): void {
+	listener = next;
+}
+
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
 function getDb(): Promise<IDBPDatabase> {
@@ -54,9 +74,36 @@ function getDb(): Promise<IDBPDatabase> {
 					await migrateDataUrlsToBlobs(tx.objectStore(FILES_STORE));
 				}
 			},
+			blocked() {
+				listener.onBlocked?.();
+			},
+			blocking() {
+				void releaseDb();
+			},
+			terminated() {
+				dbPromise = null;
+				listener.onTerminated?.();
+			},
+		}).catch((err: unknown) => {
+			// Let the next call try again rather than repeat this failure.
+			dbPromise = null;
+			throw err;
 		});
 	}
 	return dbPromise;
+}
+
+// Close this tab's connection once the last save is done, so another tab
+// can upgrade or delete the database.
+async function releaseDb(): Promise<void> {
+	const pending = dbPromise;
+	if (!pending) return;
+	try {
+		await listener.onVersionChange?.();
+	} finally {
+		if (dbPromise === pending) dbPromise = null;
+		(await pending).close();
+	}
 }
 
 // Convert version-1 records, which held the image as a base64 `dataUrl`, one
@@ -78,7 +125,8 @@ async function migrateDataUrlsToBlobs(
 
 // --- UI preferences (localStorage, sync) ---
 
-export function savePrefs(state: AppState): void {
+// Returns whether the preferences were stored.
+export function savePrefs(state: AppState): boolean {
 	const prefs: StoredPrefs = {
 		ui: {
 			sidebarWidthPercent: state.ui.sidebarWidthPercent,
@@ -101,8 +149,10 @@ export function savePrefs(state: AppState): void {
 	};
 	try {
 		localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+		return true;
 	} catch {
-		// Storage unavailable — silently ignore.
+		// Storage unavailable or full.
+		return false;
 	}
 }
 
@@ -169,6 +219,21 @@ export async function saveFile(file: ImageFile): Promise<void> {
 export async function deleteFile(fileId: string): Promise<void> {
 	const db = await getDb();
 	await db.delete(FILES_STORE, fileId);
+}
+
+// --- Persistence ---
+
+let persistenceRequested = false;
+
+// Ask the browser to keep the app's data instead of clearing it when disk
+// space runs low. Asked once per session; browsers remember the answer.
+export function requestPersistentStorage(): void {
+	if (persistenceRequested || !navigator.storage?.persist) return;
+	persistenceRequested = true;
+	navigator.storage
+		.persisted()
+		.then((persisted) => persisted || navigator.storage.persist())
+		.catch(() => {});
 }
 
 // --- Combined ---

@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
 	clearAll,
 	loadFiles,
@@ -8,6 +8,7 @@ import {
 	saveFiles,
 	saveFilesDiff,
 	savePrefs,
+	setStorageListener,
 	_resetDb,
 } from "../../src/services/appStorage";
 import { createInitialState } from "../../src/types/appState";
@@ -96,6 +97,18 @@ describe("savePrefs / loadPrefs", () => {
 	it("returns null when stored data is corrupt", () => {
 		localStorage.setItem("ichigo-annotate-prefs", "{bad json");
 		expect(loadPrefs()).toBeNull();
+	});
+
+	it("reports that prefs were stored", () => {
+		expect(savePrefs(createInitialState())).toBe(true);
+	});
+
+	it("reports a full or unavailable localStorage", () => {
+		vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+			throw new DOMException("full", "QuotaExceededError");
+		});
+		expect(savePrefs(createInitialState())).toBe(false);
+		vi.restoreAllMocks();
 	});
 });
 
@@ -230,6 +243,138 @@ describe("version 1 migration", () => {
 			{ id: "a", name: "a.png", thumbnailDataUrl: "t", annotations, type: "image/png" },
 			{ id: "b", name: "b.jpg", thumbnailDataUrl: "u", annotations: [], type: "image/jpeg" },
 		]);
+	});
+});
+
+// -- Other tabs --
+
+// Open the database from "another tab": a connection that doesn't close
+// when asked to.
+function openOther(
+	version: number,
+	upgrade?: (db: IDBDatabase) => void,
+): Promise<IDBDatabase> {
+	return new Promise((resolve, reject) => {
+		const req = indexedDB.open("ichigo-annotate", version);
+		req.onupgradeneeded = () => upgrade?.(req.result);
+		req.onsuccess = () => resolve(req.result);
+		req.onerror = () => reject(req.error);
+	});
+}
+
+function deleteDb(): Promise<void> {
+	return new Promise((resolve) => {
+		const req = indexedDB.deleteDatabase("ichigo-annotate");
+		req.onsuccess = req.onerror = () => resolve();
+	});
+}
+
+describe("other tabs", () => {
+	afterEach(() => {
+		setStorageListener({});
+	});
+
+	it("reports an upgrade blocked by an older version's tab and finishes it once that tab closes", async () => {
+		// Arrange
+		const other = await openOther(1, (db) =>
+			db.createObjectStore("files", { keyPath: "id" }),
+		);
+		const onBlocked = vi.fn(() => other.close());
+		setStorageListener({ onBlocked });
+
+		// Act
+		const files = await loadFiles();
+
+		// Assert
+		expect(onBlocked).toHaveBeenCalledOnce();
+		expect(files).toEqual([]);
+	});
+
+	it("saves and lets go when a newer version's tab needs the database", async () => {
+		// Arrange
+		await saveFiles([makeFile("a", "a.png")]);
+		const onVersionChange = vi.fn(async () => {});
+		setStorageListener({ onVersionChange });
+
+		// Act
+		const other = await openOther(3);
+
+		// Assert
+		expect(onVersionChange).toHaveBeenCalledOnce();
+		expect(other.version).toBe(3);
+		other.close();
+	});
+
+	it("tries again after the database fails to open", async () => {
+		// Arrange
+		(await openOther(3)).close();
+		await expect(loadFiles()).rejects.toThrow();
+		await deleteDb();
+
+		// Act
+		const files = await loadFiles();
+
+		// Assert
+		expect(files).toEqual([]);
+	});
+});
+
+// -- Persistence --
+
+describe("requestPersistentStorage", () => {
+	// A fresh copy of the module, which asks at most once.
+	async function freshRequest() {
+		vi.resetModules();
+		return (await import("../../src/services/appStorage")).requestPersistentStorage;
+	}
+
+	function stubStorage(persisted: boolean) {
+		const storage = {
+			persisted: vi.fn().mockResolvedValue(persisted),
+			persist: vi.fn().mockResolvedValue(true),
+		};
+		Object.defineProperty(navigator, "storage", { value: storage, configurable: true });
+		return storage;
+	}
+
+	afterEach(() => {
+		delete (navigator as { storage?: unknown }).storage;
+	});
+
+	it("asks the browser to keep the data, once", async () => {
+		// Arrange
+		const storage = stubStorage(false);
+		const requestPersistentStorage = await freshRequest();
+
+		// Act
+		requestPersistentStorage();
+		requestPersistentStorage();
+
+		// Assert
+		await vi.waitFor(() => expect(storage.persist).toHaveBeenCalledOnce());
+		expect(storage.persisted).toHaveBeenCalledOnce();
+	});
+
+	it("doesn't ask when the data is already kept", async () => {
+		// Arrange
+		const storage = stubStorage(true);
+		const requestPersistentStorage = await freshRequest();
+
+		// Act
+		requestPersistentStorage();
+		await new Promise((r) => setTimeout(r, 0));
+
+		// Assert
+		expect(storage.persisted).toHaveBeenCalledOnce();
+		expect(storage.persist).not.toHaveBeenCalled();
+	});
+
+	it("does nothing where the browser can't keep data", async () => {
+		// Arrange
+		const requestPersistentStorage = await freshRequest();
+
+		// Act / Assert
+		expect(() => requestPersistentStorage()).not.toThrow();
 	});
 });
 

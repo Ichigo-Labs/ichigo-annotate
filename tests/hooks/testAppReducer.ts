@@ -27,11 +27,64 @@ const makeFile = (id: string, name: string): ImageFile => ({
 describe("hydrate", () => {
 	it("replaces the entire state", () => {
 		const state = createInitialState();
-		const hydrated = stateWith({ ui: { sidebarWidthPercent: 42 } });
+		const hydrated = stateWith({
+			ui: { sidebarWidthPercent: 42, storageStatus: "saved" },
+		});
 		const next = appReducer(state, { type: "hydrate", state: hydrated });
 		expect(next.ui.sidebarWidthPercent).toBe(42);
 		expect(next).toEqual(hydrated);
 	});
+
+	it("marks the loaded state as stored", () => {
+		const state = stateWith({ ui: { storageStatus: "blocked" } });
+		const next = appReducer(state, {
+			type: "hydrate",
+			state: createInitialState(),
+		});
+		expect(next.ui.storageStatus).toBe("saved");
+		expect(next.ui.storageError).toBeNull();
+	});
+});
+
+// -- Storage status --
+
+describe("set_storage_status", () => {
+	it("sets the status and its error", () => {
+		const state = stateWith({ ui: { storageStatus: "saved" } });
+		const next = appReducer(state, {
+			type: "set_storage_status",
+			status: "save_failed",
+			error: "QuotaExceededError: full",
+		});
+		expect(next.ui.storageStatus).toBe("save_failed");
+		expect(next.ui.storageError).toBe("QuotaExceededError: full");
+	});
+
+	it("clears the error once a save succeeds", () => {
+		const state = stateWith({
+			ui: { storageStatus: "save_failed", storageError: "full" },
+		});
+		const next = appReducer(state, { type: "set_storage_status", status: "saved" });
+		expect(next.ui.storageStatus).toBe("saved");
+		expect(next.ui.storageError).toBeNull();
+	});
+
+	it("returns the same state when nothing changes", () => {
+		const state = stateWith({ ui: { storageStatus: "saved" } });
+		const next = appReducer(state, { type: "set_storage_status", status: "saved" });
+		expect(next).toBe(state);
+	});
+
+	it.each(["load_failed", "outdated"] as const)(
+		"keeps %s until the page reloads",
+		(status) => {
+			const state = stateWith({
+				ui: { storageStatus: status, storageError: "why" },
+			});
+			const next = appReducer(state, { type: "set_storage_status", status: "saved" });
+			expect(next).toBe(state);
+		},
+	);
 });
 
 // -- Sidebar --
