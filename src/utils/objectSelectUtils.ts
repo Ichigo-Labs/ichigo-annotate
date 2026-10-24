@@ -3,8 +3,8 @@ import type { Point } from "../types/appState";
 // Outlines a mark on the image (a heart, a sweat drop, a star, an anger mark)
 // from a tap on it, or every mark inside a loop drawn around them. "Ink" is
 // any pixel whose colour stands out from the paper around it, so coloured
-// marks work as well as black ones. The outline is the convex hull of the
-// mark's pixels plus a pixel of padding.
+// marks work as well as black ones. The outline follows the mark's own shape
+// (a heart keeps its notch) a couple of pixels out from its edge.
 
 // RGBA pixels, row-major (the layout of ImageData).
 export interface Pixels {
@@ -38,8 +38,21 @@ const FILLED_RADIUS = 2;
 // still be cut, so a solid heart touching the bubble outline or a glyph
 // doesn't take them along.
 const MAX_BRIDGE_RADIUS = 3;
+// A piece the cut takes off a filled mark goes back (as the mark's own tip)
+// when it is at most this share of the mark.
+const MAX_TIP_SHARE = 0.15;
 // Clearance between the mark and its outline (px).
-const PADDING = 1;
+const PADDING = 2;
+// Outline corners closer than this (px) to a straight run are dropped, which
+// smooths pixel steps without cutting into the clearance.
+const SIMPLIFY_TOLERANCE = 1;
+// Separate marks in one outline are joined by corridors this many pixels
+// either side of their centre line.
+const CORRIDOR_RADIUS = 1;
+// Past this many separate pieces (or this much edge to compare), joining them
+// one by one is too slow and the outline falls back to their convex hull.
+const MAX_PIECES = 24;
+const MAX_EDGE_PIXELS = 4000;
 // Specks smaller than this (px) inside a loop are noise.
 const MIN_SPECK = 3;
 
@@ -69,7 +82,7 @@ export function selectObjectAt(img: Pixels, x: number, y: number): ObjectSelecti
 		}
 	}
 	if (isTooBig(mask, width, height)) return { error: "too-big" };
-	return hullOf(mask, width, height);
+	return outlineOf(mask, width, height);
 }
 
 // Outline every mark inside a loop given in pixel coordinates.
@@ -83,7 +96,7 @@ export function selectObjectsInLoop(img: Pixels, loop: [number, number][]): Obje
 		if (inside[i] && colorDistance(colorAtIndex(img, i), paper) > INK_DISTANCE) mask[i] = 1;
 	}
 	dropSpecks(mask, width, height, MIN_SPECK);
-	return hullOf(mask, width, height);
+	return outlineOf(mask, width, height);
 }
 
 // --- Image loading (browser) ---
@@ -422,7 +435,79 @@ function cutBridges(
 	const kept = grow(width, height, anchors, N8, (n) => core[n] === 1)!;
 	const back = morph(kept, width, height, radius + 1, false);
 	for (let i = 0; i < back.length; i++) back[i] = back[i] && mask[i] ? 1 : 0;
+	restoreTips(back, mask, width, height, radius);
 	return back;
+}
+
+// A mark's own thin parts are cut too: its sharp points (a heart's tip) and
+// the thin side of a half-outlined heart. Cut-off pieces go back when they are
+// small and lead nowhere, or when they join the mark at both ends (a stroke
+// of the mark, not a bridge) and are no bigger than it. A glyph or a bubble
+// outline beyond a bridge joins once.
+function restoreTips(kept: Uint8Array, mask: Uint8Array, width: number, height: number, radius: number): void {
+	let size = 0;
+	for (let i = 0; i < kept.length; i++) size += kept[i]!;
+	const cut = new Uint8Array(mask.length);
+	for (let i = 0; i < mask.length; i++) cut[i] = mask[i] && !kept[i] ? 1 : 0;
+	const seen = new Uint8Array(mask.length);
+	for (let i = 0; i < cut.length; i++) {
+		if (!cut[i] || seen[i]) continue;
+		const piece = grow(width, height, [i], N8, (n) => cut[n] === 1)!;
+		const members: number[] = [];
+		let x0 = width;
+		let x1 = -1;
+		let y0 = height;
+		let y1 = -1;
+		for (let j = 0; j < piece.length; j++) {
+			if (!piece[j]) continue;
+			seen[j] = 1;
+			members.push(j);
+			const x = j % width;
+			const y = (j - x) / width;
+			x0 = Math.min(x0, x);
+			x1 = Math.max(x1, x);
+			y0 = Math.min(y0, y);
+			y1 = Math.max(y1, y);
+		}
+		const extent = Math.max(x1 - x0, y1 - y0) + 1;
+		const isTip = members.length <= MAX_TIP_SHARE * size && extent <= 3 * (radius + 1);
+		const isStroke = members.length <= size && joins(members, kept, width, height) >= 2;
+		if (isTip || isStroke) {
+			for (const j of members) kept[j] = 1;
+		}
+	}
+}
+
+// Within 2 px, counting as one place where a cut piece joins the mark.
+const NEAR: [number, number][] = [];
+for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (dx || dy) NEAR.push([dx, dy]);
+
+// How many separate places a piece's pixels touch the kept mark.
+function joins(members: number[], kept: Uint8Array, width: number, height: number): number {
+	const contact = new Uint8Array(kept.length);
+	const touching: number[] = [];
+	for (const j of members) {
+		const x = j % width;
+		const y = (j - x) / width;
+		const touches = N8.some(([dx, dy]) => {
+			const nx = x + dx;
+			const ny = y + dy;
+			return nx >= 0 && ny >= 0 && nx < width && ny < height && kept[ny * width + nx] === 1;
+		});
+		if (touches) {
+			contact[j] = 1;
+			touching.push(j);
+		}
+	}
+	const seen = new Uint8Array(kept.length);
+	let count = 0;
+	for (const j of touching) {
+		if (seen[j]) continue;
+		count++;
+		const place = grow(width, height, [j], NEAR, (n) => contact[n] === 1)!;
+		for (const k of touching) if (place[k]) seen[k] = 1;
+	}
+	return count;
 }
 
 // Remove connected specks smaller than `min` pixels.
@@ -484,7 +569,275 @@ function fillPolygon(poly: [number, number][], width: number, height: number): U
 	return mask;
 }
 
-// Convex hull of the mask's pixels grown by PADDING, as normalized vertices.
+// The outline of the mask's pixels grown by PADDING, as normalized vertices.
+// Separate pieces are joined by narrow corridors into one shape; holes (the
+// inside of an outlined mark) are part of it.
+function outlineOf(mask: Uint8Array, width: number, height: number): ObjectSelection {
+	if (!mask.includes(1)) return { error: "nothing" };
+	const shape = dilateRound(mask, width, height, PADDING);
+	if (!joinPieces(shape, width, height)) return hullOf(mask, width, height);
+	fillHoles(shape, width, height);
+	closePinches(shape, width, height);
+	const traced = traceOutline(shape, width, height);
+	let ring = simplifyRing(traced, SIMPLIFY_TOLERANCE);
+	if (!isSimpleRing(ring)) ring = simplifyRing(traced, SIMPLIFY_TOLERANCE / 2);
+	if (!isSimpleRing(ring)) ring = traced;
+	if (ring.length < 3) return { error: "nothing" };
+	return { vertices: ring.map(([x, y]) => ({ x: x / width, y: y / height })) };
+}
+
+// Dilation by a round brush of radius `r` px.
+function dilateRound(mask: Uint8Array, width: number, height: number, r: number): Uint8Array {
+	const brush: [number, number][] = [];
+	for (let dy = -r; dy <= r; dy++) {
+		for (let dx = -r; dx <= r; dx++) if (dx * dx + dy * dy <= r * r + 1) brush.push([dx, dy]);
+	}
+	const out = new Uint8Array(mask.length);
+	for (let i = 0; i < mask.length; i++) {
+		if (!mask[i]) continue;
+		const x = i % width;
+		const y = (i - x) / width;
+		for (const [dx, dy] of brush) {
+			const nx = x + dx;
+			const ny = y + dy;
+			if (nx >= 0 && ny >= 0 && nx < width && ny < height) out[ny * width + nx] = 1;
+		}
+	}
+	return out;
+}
+
+// Join the mask's separate (4-connected) pieces with corridors between their
+// closest pixels, nearest piece first. False when there are too many pieces.
+function joinPieces(mask: Uint8Array, width: number, height: number): boolean {
+	const pieces: number[][] = [];
+	const seen = new Uint8Array(mask.length);
+	for (let i = 0; i < mask.length; i++) {
+		if (!mask[i] || seen[i]) continue;
+		const comp = grow(width, height, [i], N4, (n) => mask[n] === 1)!;
+		const edge: number[] = [];
+		for (let j = 0; j < comp.length; j++) {
+			if (!comp[j]) continue;
+			seen[j] = 1;
+			if (isEdgePixel(comp, width, height, j)) edge.push(j);
+		}
+		pieces.push(edge);
+	}
+	if (pieces.length === 1) return true;
+	if (pieces.length > MAX_PIECES || pieces.reduce((n, p) => n + p.length, 0) > MAX_EDGE_PIXELS) return false;
+	// Prim's algorithm over the pieces, by closest edge-pixel pair; among
+	// equally close pairs, the one nearest the middle of the two pieces, so
+	// the corridor runs through the middle rather than along an edge.
+	const centre = (piece: number[]) => {
+		let sx = 0;
+		let sy = 0;
+		for (const i of piece) {
+			const x = i % width;
+			sx += x;
+			sy += (i - x) / width;
+		}
+		return [sx / piece.length, sy / piece.length] as const;
+	};
+	const joined = [pieces[0]!];
+	const rest = pieces.slice(1);
+	while (rest.length > 0) {
+		const [jx, jy] = centre(joined.flat());
+		let best = { d: Infinity, off: Infinity, k: -1, a: 0, b: 0 };
+		for (let k = 0; k < rest.length; k++) {
+			const [kx, ky] = centre(rest[k]!);
+			const mx = (jx + kx) / 2;
+			const my = (jy + ky) / 2;
+			for (const a of joined.flat()) {
+				for (const b of rest[k]!) {
+					const d = squaredDistance(a, b, width);
+					if (d > best.d) continue;
+					const ax = a % width;
+					const bx = b % width;
+					const off = ((ax + bx) / 2 - mx) ** 2 + (((a - ax) / width + (b - bx) / width) / 2 - my) ** 2;
+					if (d < best.d || off < best.off) best = { d, off, k, a, b };
+				}
+			}
+		}
+		paintCorridor(mask, width, height, best.a, best.b);
+		joined.push(rest[best.k]!);
+		rest.splice(best.k, 1);
+	}
+	return true;
+}
+
+function isEdgePixel(mask: Uint8Array, width: number, height: number, i: number): boolean {
+	const x = i % width;
+	const y = (i - x) / width;
+	return N4.some(([dx, dy]) => {
+		const nx = x + dx;
+		const ny = y + dy;
+		return nx < 0 || ny < 0 || nx >= width || ny >= height || !mask[ny * width + nx];
+	});
+}
+
+function squaredDistance(a: number, b: number, width: number): number {
+	const ax = a % width;
+	const bx = b % width;
+	const dy = (a - ax) / width - (b - bx) / width;
+	return (ax - bx) ** 2 + dy ** 2;
+}
+
+// Fill every pixel within CORRIDOR_RADIUS of the segment between two pixels.
+function paintCorridor(mask: Uint8Array, width: number, height: number, a: number, b: number): void {
+	const ax = a % width;
+	const ay = (a - ax) / width;
+	const bx = b % width;
+	const by = (b - bx) / width;
+	const r = CORRIDOR_RADIUS + 0.5;
+	const len2 = (bx - ax) ** 2 + (by - ay) ** 2;
+	for (let y = Math.max(0, Math.floor(Math.min(ay, by) - r)); y <= Math.min(height - 1, Math.ceil(Math.max(ay, by) + r)); y++) {
+		for (let x = Math.max(0, Math.floor(Math.min(ax, bx) - r)); x <= Math.min(width - 1, Math.ceil(Math.max(ax, bx) + r)); x++) {
+			const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / len2));
+			if (Math.hypot(x - (ax + t * (bx - ax)), y - (ay + t * (by - ay))) <= r) mask[y * width + x] = 1;
+		}
+	}
+}
+
+// Fill background enclosed by the mask (not reachable from the image edge).
+function fillHoles(mask: Uint8Array, width: number, height: number): void {
+	const border: number[] = [];
+	for (let x = 0; x < width; x++) border.push(x, (height - 1) * width + x);
+	for (let y = 1; y < height - 1; y++) border.push(y * width, y * width + width - 1);
+	const outside = grow(width, height, border.filter((i) => !mask[i]), N4, (n) => !mask[n])!;
+	for (let i = 0; i < mask.length; i++) if (!outside[i]) mask[i] = 1;
+}
+
+// Fill one pixel of every 2 x 2 block whose pixels touch only diagonally, so
+// the traced outline never touches itself at a corner.
+function closePinches(mask: Uint8Array, width: number, height: number): void {
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (let y = 0; y + 1 < height; y++) {
+			for (let x = 0; x + 1 < width; x++) {
+				const i = y * width + x;
+				const tl = mask[i];
+				const tr = mask[i + 1];
+				const bl = mask[i + width];
+				const br = mask[i + width + 1];
+				if (tl && br && !tr && !bl) {
+					mask[i + 1] = 1;
+					changed = true;
+				} else if (tr && bl && !tl && !br) {
+					mask[i] = 1;
+					changed = true;
+				}
+			}
+		}
+	}
+}
+
+// The outer boundary of a single 4-connected shape along pixel edges, as
+// pixel-corner coordinates (one vertex per turn).
+function traceOutline(mask: Uint8Array, width: number, height: number): [number, number][] {
+	const start = mask.indexOf(1);
+	const sx = start % width;
+	const sy = (start - sx) / width;
+	const on = (x: number, y: number) => x >= 0 && y >= 0 && x < width && y < height && mask[y * width + x] === 1;
+	// Walk with the shape on the right-hand side, starting along the top edge
+	// of its first pixel.
+	let x = sx;
+	let y = sy;
+	let dx = 1;
+	let dy = 0;
+	const ring: [number, number][] = [[sx, sy]];
+	for (let steps = 0; steps < 4 * (width + 1) * (height + 1); steps++) {
+		// The pixels ahead on the right and on the left of this corner.
+		const rx = -dy;
+		const ry = dx;
+		const aheadRight = on(Math.floor(x + (dx + rx) / 2), Math.floor(y + (dy + ry) / 2));
+		const aheadLeft = on(Math.floor(x + (dx - rx) / 2), Math.floor(y + (dy - ry) / 2));
+		let nx = dx;
+		let ny = dy;
+		if (!aheadRight) {
+			nx = rx;
+			ny = ry;
+		} else if (aheadLeft) {
+			nx = -rx;
+			ny = -ry;
+		}
+		if ((nx !== dx || ny !== dy) && !(x === sx && y === sy)) ring.push([x, y]);
+		dx = nx;
+		dy = ny;
+		x += dx;
+		y += dy;
+		if (x === sx && y === sy) break;
+	}
+	return ring;
+}
+
+// Douglas-Peucker simplification of a closed ring.
+function simplifyRing(ring: [number, number][], tolerance: number): [number, number][] {
+	if (ring.length <= 4) return ring;
+	// Split at the vertex farthest from the first, simplify both halves.
+	let far = 0;
+	let farD = -1;
+	for (let k = 1; k < ring.length; k++) {
+		const d = Math.hypot(ring[k]![0] - ring[0]![0], ring[k]![1] - ring[0]![1]);
+		if (d > farD) {
+			farD = d;
+			far = k;
+		}
+	}
+	const first = simplifyChain(ring.slice(0, far + 1), tolerance);
+	const second = simplifyChain([...ring.slice(far), ring[0]!], tolerance);
+	return [...first.slice(0, -1), ...second.slice(0, -1)];
+}
+
+function simplifyChain(chain: [number, number][], tolerance: number): [number, number][] {
+	if (chain.length <= 2) return chain;
+	const [ax, ay] = chain[0]!;
+	const [bx, by] = chain[chain.length - 1]!;
+	const len = Math.hypot(bx - ax, by - ay);
+	let worst = 0;
+	let worstD = -1;
+	for (let k = 1; k < chain.length - 1; k++) {
+		const [px, py] = chain[k]!;
+		const d = len === 0 ? Math.hypot(px - ax, py - ay) : Math.abs((bx - ax) * (ay - py) - (ax - px) * (by - ay)) / len;
+		if (d > worstD) {
+			worstD = d;
+			worst = k;
+		}
+	}
+	if (worstD <= tolerance) return [chain[0]!, chain[chain.length - 1]!];
+	const left = simplifyChain(chain.slice(0, worst + 1), tolerance);
+	const right = simplifyChain(chain.slice(worst), tolerance);
+	return [...left.slice(0, -1), ...right];
+}
+
+// True when no two non-adjacent edges of the ring cross or touch.
+function isSimpleRing(ring: [number, number][]): boolean {
+	const n = ring.length;
+	if (n < 3) return false;
+	const cross = (o: [number, number], a: [number, number], b: [number, number]) =>
+		(a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+	const onSegment = (p: [number, number], a: [number, number], b: [number, number]) =>
+		Math.min(a[0], b[0]) <= p[0] && p[0] <= Math.max(a[0], b[0]) && Math.min(a[1], b[1]) <= p[1] && p[1] <= Math.max(a[1], b[1]);
+	for (let i = 0; i < n; i++) {
+		const a = ring[i]!;
+		const b = ring[(i + 1) % n]!;
+		for (let j = i + 2; j < n; j++) {
+			if (i === 0 && j === n - 1) continue;
+			const c = ring[j]!;
+			const d = ring[(j + 1) % n]!;
+			const d1 = cross(c, d, a);
+			const d2 = cross(c, d, b);
+			const d3 = cross(a, b, c);
+			const d4 = cross(a, b, d);
+			if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return false;
+			if ((d1 === 0 && onSegment(a, c, d)) || (d2 === 0 && onSegment(b, c, d))) return false;
+			if ((d3 === 0 && onSegment(c, a, b)) || (d4 === 0 && onSegment(d, a, b))) return false;
+		}
+	}
+	return true;
+}
+
+// Convex hull of the mask's pixels grown by PADDING, as normalized vertices
+// (for a loop around too many separate pieces to join).
 function hullOf(mask: Uint8Array, width: number, height: number): ObjectSelection {
 	const pts: [number, number][] = [];
 	for (let y = 0; y < height; y++) {

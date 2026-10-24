@@ -44,6 +44,23 @@ function box(sel: ObjectSelection, img: Pixels) {
 	return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
 }
 
+// Whether a pixel-space point is inside a selection's outline (even-odd rule).
+function contains(sel: ObjectSelection, img: Pixels, x: number, y: number): boolean {
+	if (!("vertices" in sel)) throw new Error(`no selection: ${sel.error}`);
+	const pts = sel.vertices.map((v) => [v.x * img.width, v.y * img.height] as const);
+	let inside = false;
+	for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+		const [xi, yi] = pts[i]!;
+		const [xj, yj] = pts[j]!;
+		if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+	}
+	return inside;
+}
+
+// A filled heart: two round lobes over a point, notched between the lobes.
+const heart = (x: number, y: number) =>
+	disk(42, 36, 8)(x, y) || disk(58, 36, 8)(x, y) || (y >= 38 && y <= 60 && Math.abs(x - 50) <= (60 - y) * 0.72);
+
 describe("selectObjectAt", () => {
 	it("outlines a filled mark that is tapped", () => {
 		// Arrange
@@ -53,11 +70,11 @@ describe("selectObjectAt", () => {
 		// Act
 		const b = box(selectObjectAt(img, 30, 40), img);
 
-		// Assert: the disk spans 22..38, plus a pixel of padding.
-		expect(b.x0).toBeCloseTo(21, 0);
-		expect(b.x1).toBeCloseTo(39, 0);
-		expect(b.y0).toBeCloseTo(31, 0);
-		expect(b.y1).toBeCloseTo(49, 0);
+		// Assert: the disk spans 22..38, plus two pixels of padding.
+		expect(b.x0).toBeCloseTo(20, 0);
+		expect(b.x1).toBeCloseTo(40, 0);
+		expect(b.y0).toBeCloseTo(30, 0);
+		expect(b.y1).toBeCloseTo(50, 0);
 	});
 
 	it("outlines an outlined mark tapped in its middle", () => {
@@ -84,8 +101,8 @@ describe("selectObjectAt", () => {
 		const b = box(selectObjectAt(img, 42, 40), img);
 
 		// Assert
-		expect(b.x0).toBeCloseTo(23, 0);
-		expect(b.x1).toBeCloseTo(37, 0);
+		expect(b.x0).toBeCloseTo(22, 0);
+		expect(b.x1).toBeCloseTo(38, 0);
 	});
 
 	it("finds nothing on open paper away from any mark", () => {
@@ -154,8 +171,8 @@ describe("selectObjectAt", () => {
 		const b = box(selectObjectAt(img, 40, 40), img);
 
 		// Assert
-		expect(b.x0).toBeCloseTo(31, 0);
-		expect(b.x1).toBeLessThanOrEqual(49);
+		expect(b.x0).toBeCloseTo(30, 0);
+		expect(b.x1).toBeLessThanOrEqual(50);
 	});
 
 	it("works on coloured paper", () => {
@@ -167,8 +184,8 @@ describe("selectObjectAt", () => {
 		const b = box(selectObjectAt(img, 50, 40), img);
 
 		// Assert
-		expect(b.x0).toBeCloseTo(42, 0);
-		expect(b.x1).toBeCloseTo(58, 0);
+		expect(b.x0).toBeCloseTo(41, 0);
+		expect(b.x1).toBeCloseTo(59, 0);
 	});
 
 	it("refuses dark art covering much of the crop", () => {
@@ -193,8 +210,8 @@ describe("selectObjectAt", () => {
 		const b = box(selectObjectAt(img, 50, 31), img);
 
 		// Assert: the whole disk, edge included.
-		expect(b.y0).toBeCloseTo(30, 0);
-		expect(b.y1).toBeCloseTo(50, 0);
+		expect(b.y0).toBeCloseTo(29, 0);
+		expect(b.y1).toBeCloseTo(51, 0);
 	});
 
 	it("refuses the bubble outline around the whole crop", () => {
@@ -207,6 +224,55 @@ describe("selectObjectAt", () => {
 
 		// Assert
 		expect(sel).toEqual({ error: "too-big" });
+	});
+
+	it("follows a heart's notch instead of bridging it", () => {
+		// Arrange
+		const img = canvas(100, 80);
+		paint(img, heart, BLACK);
+
+		// Act
+		const sel = selectObjectAt(img, 50, 45);
+
+		// Assert: the paper in the notch stays outside; the heart is inside.
+		expect(contains(sel, img, 50, 27)).toBe(false);
+		expect(contains(sel, img, 50, 40)).toBe(true);
+		expect(contains(sel, img, 42, 36)).toBe(true);
+	});
+
+	it("keeps a few pixels of clearance all round the mark", () => {
+		// Arrange
+		const img = canvas(100, 80);
+		paint(img, heart, BLACK);
+		const ink: [number, number][] = [];
+		for (let y = 0; y < img.height; y++) {
+			for (let x = 0; x < img.width; x++) if (heart(x + 0.5, y + 0.5)) ink.push([x + 0.5, y + 0.5]);
+		}
+
+		// Act
+		const sel = selectObjectAt(img, 50, 45);
+
+		// Assert: every ink pixel is inside; every corner is close to the ink.
+		expect(ink.every(([x, y]) => contains(sel, img, x, y))).toBe(true);
+		if (!("vertices" in sel)) throw new Error("no selection");
+		const gaps = sel.vertices.map((v) =>
+			Math.min(...ink.map(([x, y]) => Math.hypot(v.x * img.width - x, v.y * img.height - y))),
+		);
+		expect(Math.max(...gaps)).toBeLessThan(4);
+	});
+
+	it("keeps the thin outlined side of a half-filled heart", () => {
+		// Arrange: a filled right lobe and point, a thin outline for the left lobe.
+		const img = canvas(100, 80);
+		paint(img, ring(42, 36, 8, 2), BLACK);
+		paint(img, (x, y) => disk(58, 36, 8)(x, y) || (y >= 40 && y <= 60 && Math.abs(x - 50) <= (60 - y) * 0.72), BLACK);
+
+		// Act
+		const sel = selectObjectAt(img, 58, 40);
+
+		// Assert: the left lobe's stroke and the paper inside it are covered.
+		expect(contains(sel, img, 35, 33)).toBe(true);
+		expect(contains(sel, img, 42, 32)).toBe(true);
 	});
 
 	it("returns normalized vertices", () => {
@@ -241,10 +307,26 @@ describe("selectObjectsInLoop", () => {
 		const b = box(selectObjectsInLoop(img, square(15, 15, 75, 65)), img);
 
 		// Assert: both marks inside the loop, not the one outside.
-		expect(b.x0).toBeCloseTo(24, 0);
-		expect(b.y0).toBeCloseTo(24, 0);
-		expect(b.x1).toBeCloseTo(66, 0);
-		expect(b.y1).toBeCloseTo(56, 0);
+		expect(b.x0).toBeCloseTo(23, 0);
+		expect(b.y0).toBeCloseTo(23, 0);
+		expect(b.x1).toBeCloseTo(67, 0);
+		expect(b.y1).toBeCloseTo(57, 0);
+	});
+
+	it("joins separate marks without filling the paper between them", () => {
+		// Arrange
+		const img = canvas(100, 80);
+		paint(img, disk(30, 40, 5), BLACK);
+		paint(img, disk(60, 40, 5), BLACK);
+
+		// Act
+		const sel = selectObjectsInLoop(img, square(15, 25, 75, 55));
+
+		// Assert: one outline around both, linked by a narrow corridor.
+		expect(contains(sel, img, 30, 40)).toBe(true);
+		expect(contains(sel, img, 60, 40)).toBe(true);
+		expect(contains(sel, img, 45, 40.5)).toBe(true);
+		expect(contains(sel, img, 45, 45)).toBe(false);
 	});
 
 	it("ignores specks of noise", () => {
